@@ -1,133 +1,84 @@
 ---
-title: "Cypher Prediction Market Fees: Protocol, LP, and Accuracy"
-sidebarTitle: "Fees"
-description: "Understand how protocol fees, creator LP fees, and Accuracy platform fees are calculated and distributed in Cypher prediction markets."
+title: "Fees and odds"
+description: "What you pay on each bet, how odds are computed, and how payouts get calculated."
 ---
 
-Cypher charges two types of fees depending on the market type. YesNo and MultiOutcome markets split a combined 2% fee between the protocol treasury and the market creator. Accuracy markets charge a single 20% platform fee drawn only from the loser pool — winners always get their full stake back plus a share of what losers contributed. Understanding how fees work helps you calculate expected returns before you bet, and helps market creators understand the economic incentive to run high-quality markets.
+This page is the honest breakdown of what comes out of every bet you place on Cyphers. Two small fees, a payout calculated from the pool ratios, and that's it.
 
-## Fee overview
+## Two fees come out of every bet
 
-| | **YesNo** | **MultiOutcome** | **Accuracy** |
+When you place a bet, two fees are deducted before the rest enters the pool:
+
+| Fee | Typical rate | Maximum | Goes to |
 |---|---|---|---|
-| **Protocol fee** | 0.5% of total pool | 0.5% of total pool | 20% of loser pool |
-| **LP fee (creator)** | 1.5% of total pool | 1.5% of total pool | None |
-| **Combined fee** | 2% of total pool | 2% of total pool | 20% of loser pool only |
-| **Applied to** | Total pool at settlement | Total pool at settlement | Loser pool after settlement |
-| **Fee base** | `total_staked` | `total_staked` | `loser_pool` (computed by MPC) |
+| **Protocol fee** | `0.5%` | `1%` | The protocol treasury |
+| **Market-creator fee** | `1.5%` | `5%` | Whoever opened the market |
 
-## Protocol fee
+So for a typical `$5` bet, the breakdown is:
 
-The protocol fee (default **0.5%**) is transferred from each pool vault to the Cypher treasury wallet at the moment the Arcium settlement callback fires. The treasury address is stored in the global `CyperMarket` config account and can be updated by the platform admin.
+| Step | Amount |
+|---|---|
+| Your bet | `$5.00` |
+| Protocol fee (0.5%) | `−$0.025` |
+| Market-creator fee (1.5%) | `−$0.075` |
+| **Goes into the pool** | **`$4.90`** |
 
-The protocol fee sustains Cypher's infrastructure — indexer, backend, Arcium compute costs, and on-chain program maintenance.
-
-## LP fee (creator incentive)
-
-The LP fee (default **1.5%**) goes directly to the market **creator's** USDC wallet at settlement time, not to any liquidity pool. This is the creator's reward for posting a well-formed, accurate market.
+Total deducted: `$0.10`, which is `2%` of the bet. That's typical. For comparison, traditional sportsbooks charge `5–10%` and centralized prediction markets often charge similar amounts.
 
 <Tip>
-  The LP fee is how Cypher aligns creator incentives with participant interests. A creator who posts a bad question, picks the wrong oracle, or disappears before resolving risks losing their $10 bond (see below) — while a creator who runs clean markets earns 1.5% of every pool that settles through their market. On a $1,000 total pool that's $15 USDC returned alongside the bond.
+  The exact rates can be tuned by the protocol. The app shows you the actual fees before you confirm - always check there.
 </Tip>
 
-## Accuracy platform fee
+## How odds work
 
-Accuracy markets work differently. Because every participant gets their stake back, the "fee" can only come from the profit pool — which is the aggregate of what losers contributed above their returned stake. The protocol takes **20%** of the loser pool before distributing the remaining 80% to winners weighted by prediction accuracy.
+Each side of a market has its own pool - the total USDC bet on that side. The odds you see come straight from the pool ratios.
 
-**No LP fee exists for Accuracy markets.** The 20% platform fee goes entirely to the treasury.
+The intuition:
 
-## Example calculations
+- If `$1000` is on YES and `$1000` is on NO, the odds are even. Betting `$1` on either side, you'd win roughly `$1` if you're right.
+- If `$3000` is on YES and `$1000` is on NO, YES is the favorite. Betting on YES wins less, betting on NO wins more.
+- More precisely: your potential payout depends on **the total pool** divided by **the side you bet on**. If you bet on the smaller side and win, you get a bigger multiplier.
 
-<Accordion title="YesNo / MultiOutcome example: $100 total pool">
-  Suppose a YesNo market closes with a $100 USDC total pool across both sides.
+### The exact formula
 
-  ```
-  Total pool:     $100.00
-  Protocol fee:     $0.50   (0.5% × $100)
-  LP fee:           $1.50   (1.5% × $100)
-  ─────────────────────────
-  Prize pool:      $98.00   distributed to winners
-  ```
+If you want to know exactly what's happening behind the scenes:
 
-  Winners receive their original stake back plus a proportional share of the losing side's contribution, both drawn from the $98 prize pool.
-
-  **SDK calculation:**
-
-  ```ts
-  import { computeFees } from "@cypher-zk/sdk";
-
-  const { protocolFee, lpFee, netAmount } = computeFees(100_000_000n, {
-    protocolFeeRateBps: 50,   // 0.5%
-    lpFeeRateBps:       150,  // 1.5%
-  });
-
-  // protocolFee: 500_000   → $0.50 USDC
-  // lpFee:       1_500_000 → $1.50 USDC
-  // netAmount:  98_000_000 → $98.00 USDC (prize pool)
-  ```
-</Accordion>
-
-<Accordion title="Accuracy example: 4 participants, $10 tier">
-  Suppose 4 participants enter a $10 Accuracy market. Total staked = $40.
-
-  After MPC settlement, 2 participants are ranked "close" (winners) and 2 are ranked "far" (losers). All 4 get their $10 stake returned. The loser pool is:
-
-  ```
-  Loser pool:   2 × $10 = $20.00  (losers' stakes redistributed as profit)
-  Platform fee:             $4.00  (20% × $20)
-  ─────────────────────────────────
-  Winner prize pool:        $16.00 distributed by proximity weight
-  ```
-
-  Each winner still receives their full $10 stake back. On top of that, the $16 prize pool is split by the accuracy weighting formula — the closer predictor takes the larger share.
-
-  **Note:** The `computeFees` function is not used for Accuracy markets in the same way. Accuracy fees are computed by the Cypher backend after the MPC circuit reveals the loser count and sent to the treasury automatically as part of the settlement process.
-</Accordion>
-
-## Creator bond
-
-To create any market — YesNo, MultiOutcome, or Accuracy — the creator must post a **$10 USDC bond** (`CREATOR_BOND = 10_000_000` raw units). This bond is held in a separate `Bond` vault account and is never mixed with pool funds.
-
-<CardGroup cols={3}>
-  <Card title="Bond returned" icon="circle-check">
-    After a successful, undisputed resolution the bond is transferred back to the creator's USDC wallet automatically when they call `withdrawCreatorFunds`.
-  </Card>
-  <Card title="Bond slashed — missed deadline" icon="triangle-exclamation">
-    If the creator fails to post a resolution before `resolve_deadline`, the bond is slashed to the treasury and all participants can claim refunds.
-  </Card>
-  <Card title="Bond slashed — dispute upheld" icon="xmark">
-    If someone flags the posted resolution and the admin confirms it was wrong, the bond is slashed to the treasury. The admin posts a corrected outcome.
-  </Card>
-</CardGroup>
-
-<Note>
-  The creator bond applies equally to all market types. There is no higher bond for more complex markets — the minimum is always $10 USDC. The bond cannot be withdrawn until all pools in the market group have fully settled.
-</Note>
-
-## `computeFees` utility
-
-Use `computeFees` to preview exactly how much will be deducted from a bet amount before submitting a transaction. The function mirrors the on-chain arithmetic and accepts raw USDC amounts (bigint with 6 decimal places).
-
-```ts
-import { computeFees, isBetAmountValid } from "@cypher-zk/sdk";
-import type { FeeRates } from "@cypher-zk/sdk";
-
-const rates: FeeRates = {
-  protocolFeeRateBps: 50,   // from GlobalStateAccount.protocolFeeRate
-  lpFeeRateBps:       150,  // from GlobalStateAccount.lpFeeRate
-};
-
-// Check validity before computing
-const valid = isBetAmountValid(5_000_000n, rates);
-// true — $5 USDC clears the minimum and produces non-zero net amount
-
-const breakdown = computeFees(5_000_000n, rates);
-// {
-//   amount:      5_000_000n  → $5.00  (gross input)
-//   protocolFee:    25_000n  → $0.025
-//   lpFee:          75_000n  → $0.075
-//   netAmount:   4_900_000n  → $4.90  (counted toward your pool position)
-// }
+```text
+entryOdds = totalPool / yourSidePool
 ```
 
-Always read `protocolFeeRateBps` and `lpFeeRateBps` live from `GlobalStateAccount` rather than hardcoding the defaults — they can be updated by the platform admin.
+The result is the multiplier you'd get on a winning bet, *before* the payout ratio adjustment at settlement. For the `$3000` YES, `$1000` NO example:
+
+- Betting on YES: `4000 / 3000 = 1.33×` your stake if YES wins.
+- Betting on NO: `4000 / 1000 = 4×` your stake if NO wins.
+
+Your `entryOdds` are **locked in** the moment your bet lands. Even if everyone piles into your side after you, your payout is computed against the odds you got at submission time. This protects early bettors from getting their returns diluted.
+
+## Payouts at settlement
+
+When the market closes and Arcium decrypts every position, the protocol does one final calculation - the **payout ratio** - to make sure the total payouts can't exceed what's actually in the vault.
+
+For a clean market, the payout ratio is roughly `1`. You get back what your locked-in odds promised. In edge cases (lots of fees taken, very imbalanced pools), it can be slightly less.
+
+The app shows you the projected payout on each of your positions in the Positions tab. When you claim, the protocol pays out automatically - no math on your end.
+
+## The creator's bond
+
+Opening a market requires a **USDC bond** from the creator - at least `$20`. The bond is held in the market until resolution, then returned along with the creator's accumulated LP fees.
+
+The bond exists for two reasons:
+
+- **Sybil resistance.** It costs USDC to spin up a market, so nobody can spam thousands of junk markets.
+- **Skin in the game.** A creator who vanishes during resolution loses access to their bond until the dispute period closes.
+
+The bond is fully refundable on a clean resolution. It's not a fee - just collateral.
+
+## Minimum bet
+
+Every market on Cyphers has a minimum bet of `$1` USDC. Bets below this are rejected. Most markets accept anything from `$1` to whatever you have in your wallet.
+
+## What's next
+
+- [Market lifecycle](/how-it-works/lifecycle) - the timeline that affects when fees apply.
+- [Create a market](/guides/create-a-market) - what bond you'll need to post.
+- [Place a bet](/guides/place-a-bet) - the full bettor flow.

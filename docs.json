@@ -1,16 +1,40 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Arcium",
+  "name": "Cyphers",
   "theme": "luma",
-  "favicon": "https://media.brand.dev/9fec432e-5829-46ff-8a12-f6d34d93836d.png",
+  "logo": {
+    "light": "/cyphers.png",
+    "dark": "/cyphers.png",
+    "href": "https://cypher-zk.github.io"
+  },
+  "favicon": "/cyphers.png",
   "colors": {
     "primary": "#6d45fc",
     "light": "#b49cfc"
+  },
+  "appearance": {
+    "default": "dark"
+  },
+  "background": {
+    "decoration": "gradient"
+  },
+  "fonts": {
+    "heading": {
+      "family": "Inter"
+    },
+    "body": {
+      "family": "Inter"
+    }
   },
   "navbar": {
     "primary": {
       "type": "github",
       "href": "https://github.com/cypher-zk"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/cypher-zk"
     }
   },
   "navigation": {
@@ -19,15 +43,14 @@
         "tab": "Documentation",
         "groups": [
           {
-            "group": "Get Started",
+            "group": "Get started",
             "pages": [
               "introduction",
-              "quickstart",
-              "core-concepts"
+              "quickstart"
             ]
           },
           {
-            "group": "How It Works",
+            "group": "How it works",
             "pages": [
               "how-it-works/privacy-model",
               "how-it-works/market-types",
@@ -36,28 +59,19 @@
             ]
           },
           {
-            "group": "Guides",
+            "group": "Using Cyphers",
             "pages": [
               "guides/place-a-bet",
               "guides/create-a-market",
               "guides/claim-payout",
-              "guides/dispute-resolution",
-              "guides/react-integration"
+              "guides/dispute-resolution"
             ]
           },
           {
-            "group": "Configuration",
+            "group": "Help",
             "pages": [
-              "configuration/sdk-setup",
-              "configuration/wallet-integration",
-              "configuration/network"
-            ]
-          },
-          {
-            "group": "Troubleshooting",
-            "pages": [
-              "troubleshooting/common-errors",
-              "troubleshooting/faq"
+              "troubleshooting/faq",
+              "troubleshooting/common-errors"
             ]
           }
         ]

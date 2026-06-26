@@ -1,142 +1,76 @@
 ---
-title: "Cypher Prediction Market Lifecycle: All Nine Phases"
-sidebarTitle: "Lifecycle"
-description: "Follow a Cypher prediction market from creation through betting, lock, MPC settlement, the challenge window, and final payout or refund."
+title: "Market lifecycle"
+description: "Every market on Cyphers moves through the same set of phases - here's what each one means."
 ---
 
-Every Cypher market moves through a defined sequence of states — from the moment a creator locks in a bond to the moment winners claim their USDC. Understanding the lifecycle helps you know exactly what actions are available at each stage, who triggers them, and what to do if something goes wrong. The SDK's `marketPhase()` function gives you a real-time label for any market so your UI always reflects the correct state.
+Every market on Cyphers follows a predictable timeline: it opens for bets, it closes, it gets resolved, and winners can claim. This page walks through each phase and what you can do at every step.
 
-## Full lifecycle walkthrough
+If you just want to know what your wallet can do *right now* on a given market, look at the market's status badge in the app. The phase tells you which actions are available.
 
-<Steps>
-  <Step title="betting — Market is open">
-    **Who triggers it:** The market creator, by calling `createMarketAction` (or `createMarketMultiAction`).
+## The phases at a glance
 
-    The creator posts a $10 USDC bond, sets the question, oracle type, lock timestamp, and resolve deadline. Pools are initialized. The market enters the `betting` phase immediately.
+```mermaid
+flowchart LR
+    A[Betting] --> B[Awaiting resolve]
+    B --> C[Pending resolution]
+    C --> D[Challenge window]
+    D --> E[Claimable]
+    D -.dispute.-> F[Disputed]
+    F -.admin.-> E
+    B -.deadline missed.-> G[Refundable]
 
-    During `betting`, anyone can call `placeBet` (or `placeBetAccuracy`). Each bet encrypts the prediction client-side and creates a `Position` account on Solana storing the ciphertext. The stake amount is transferred to the pool vault.
-
-    This phase lasts until `lock_timestamp` is reached.
-  </Step>
-
-  <Step title="awaitingResolve — Betting closed, resolution pending">
-    **Who triggers it:** Automatic — `lock_timestamp` has passed.
-
-    No new bets can be placed. Anyone can call `lock_market` to transition the `MarketGroup` to `Locked` status, which permanently closes the pools. The oracle (Pyth feed or market creator) must now post the resolution before `resolve_deadline`.
-
-    The market stays in `awaitingResolve` until either the oracle posts a result or the deadline passes.
-  </Step>
-
-  <Step title="pendingResolution — Challenge window active">
-    **Who triggers it:** The oracle (Pyth or market creator), by calling `postResolution`.
-
-    The oracle posts a `ResolvedValue` (yes/no boolean, outcome index, or numeric value). A **dispute window** opens immediately and lasts between 24 and 48 hours depending on how the market was configured.
-
-    During this window, **anyone** can call `flagResolution` to dispute the posted outcome. If no one disputes, the market proceeds to `awaitingFinalize`. If the market is flagged, it enters `disputed`.
-
-    <Note>
-      The 24–48 hour challenge window is your community's safety net. If a market creator posts a wrong or manipulated outcome, any participant (or external observer) can flag it before payouts are distributed. You do not need to hold a position to flag a resolution.
-    </Note>
-  </Step>
-
-  <Step title="awaitingFinalize — Challenge window elapsed, awaiting finalize call">
-    **Who triggers it:** Automatic — challenge window has elapsed with no dispute.
-
-    The resolution is considered accepted. Anyone can now call `finalizeResolution` to move the market forward. This is a permissionless call — no special role required.
-
-    Once `finalizeResolution` is called, the backend queues the Arcium MPC settlement computation.
-  </Step>
-
-  <Step title="MPC settlement — Arcium computes winner mask (~10 seconds)">
-    **Who triggers it:** The Cypher backend, after `finalizeResolution`.
-
-    Once finalized, the Cypher backend submits all encrypted position payloads to the Arcium MXE cluster. The MPC circuit runs entirely inside an encrypted context — no single party ever sees individual predictions in plaintext. The cluster determines winners and fires a callback to the Solana program.
-
-    <Note>
-      Arcium MPC settlement typically completes in **~10 seconds** on devnet. You can poll for settlement completion using `awaitComputation(client, computationOffset)`.
-    </Note>
-
-    The callback writes each position's `payout` field and marks the pool as `Settled`. Fees are transferred to the treasury and creator at this point.
-  </Step>
-
-  <Step title="claimable — Winners can claim payouts">
-    **Who triggers it:** MPC settlement callback completing successfully.
-
-    The `MarketGroup` transitions to `GroupStatus::Settled`. Any participant with `position.payout > 0` can now call `claimPayout`. The USDC is transferred from the pool vault to the winner's wallet. The position is marked `Claimed`.
-
-    The creator's $10 USDC bond is returned automatically if the resolution was accurate and undisputed.
-  </Step>
-</Steps>
-
-## Exception states
-
-These states are reached when something deviates from the normal path.
-
-<CardGroup cols={2}>
-  <Card title="disputed" icon="flag">
-    Someone called `flagResolution` during the challenge window. The market is paused while a Cypher admin reviews the posted outcome. The admin can either confirm the original resolution or override it with a corrected outcome using `adminOverrideResolution`. If the dispute is upheld, the creator's bond is slashed.
-  </Card>
-  <Card title="refundable" icon="rotate-left">
-    The market passed its `resolve_deadline` with no oracle resolution. All participants can call `claimRefund` to recover their original stakes. The creator's bond is slashed and sent to the treasury.
-  </Card>
-  <Card title="expired" icon="clock">
-    All deadlines — claim deadline and refund deadline — have elapsed. Remaining vault funds can only be recovered by the platform admin. Participants should always claim before the claim deadline.
-  </Card>
-  <Card title="cancelled" icon="xmark">
-    The market creator called `cancelMarket` **before any bets were placed**. Once a single bet exists, cancellation is blocked. The creator's bond is returned in full on a clean cancel.
-  </Card>
-</CardGroup>
-
-## `marketPhase()` reference
-
-The `marketPhase(market, nowSec?)` function from `@cypher-zk/sdk` computes the current lifecycle label from on-chain account data. Use it to drive UI state — which buttons to show, what copy to display, and what actions to enable.
-
-```ts
-import { marketPhase } from "@cypher-zk/sdk";
-
-const phase = marketPhase(market); // uses Date.now() / 1000 internally
-
-switch (phase) {
-  case "betting":
-    // show "Place Bet" button
-    break;
-  case "awaitingResolve":
-    // show "Awaiting Oracle" banner (resolver-only action available)
-    break;
-  case "pendingResolution":
-    // show challenge window countdown + "Flag Resolution" button for anyone
-    break;
-  case "awaitingFinalize":
-    // show "Finalize Resolution" button (permissionless)
-    break;
-  case "disputed":
-    // show "Under Admin Review" banner
-    break;
-  case "claimable":
-    // show "Claim Payout" button for winners
-    break;
-  case "refundable":
-    // show "Claim Refund" button for all participants
-    break;
-  case "expired":
-    // show "Market Expired" message — no user actions available
-    break;
-  case "cancelled":
-    // show "Market Cancelled" message
-    break;
-}
+    style A fill:#1f1b2e,stroke:#22c55e,color:#f0fdf4
+    style E fill:#1f1b2e,stroke:#6d45fc,color:#fff
+    style F fill:#1f1b2e,stroke:#f59e0b,color:#fffbeb
+    style G fill:#1f1b2e,stroke:#ef4444,color:#fef2f2
 ```
 
-### All `MarketPhase` values
+The phases in order:
 
-| Value | Condition | Clickable actions |
+| Phase | What it means | What you can do |
 |---|---|---|
-| `"betting"` | Market open, before `lock_timestamp` | `placeBet` |
-| `"awaitingResolve"` | Locked, before `resolve_deadline` | `resolveMarket` (resolver only) |
-| `"pendingResolution"` | Resolution posted, challenge window active | `flagResolution` (anyone) |
-| `"awaitingFinalize"` | Challenge window elapsed, not disputed | `finalizeResolution` (anyone) |
-| `"disputed"` | Resolution flagged | `adminOverrideResolution` (admin only) |
-| `"claimable"` | Settled, before `claimDeadline` | `claimPayout` |
-| `"refundable"` | Resolve deadline missed, before `refundDeadline` | `claimRefund` |
-| `"expired"` | All deadlines elapsed | None (admin only) |
-| `"cancelled"` | Creator cancelled before any bets | None |
+| **Betting** | The market is open. The close time hasn't been hit yet. | Place a bet |
+| **Awaiting resolve** | Betting has closed. Now the resolver needs to post the outcome. | Wait |
+| **Pending resolution** | The resolver posted the outcome and Arcium has computed the result. The challenge window is open. | Flag the resolution if it looks wrong |
+| **Disputed** | Someone flagged the result. An admin investigates and posts the correct outcome. | Wait |
+| **Claimable** | The market is resolved and the challenge window has passed. | Claim if you won |
+| **Refundable** | The resolver never showed up. You can pull your stake back. | Claim a refund |
+| **Cancelled** | The creator cancelled before any bets were placed. | Nothing - this rarely affects users |
+| **Expired** | All deadlines passed. Unclaimed funds go to protocol housekeeping. | Nothing |
+
+## The happy path
+
+For most markets, the journey is short:
+
+1. **Betting** opens when the market is created.
+2. **Awaiting resolve** kicks in when the close time hits - usually a few days or weeks later.
+3. The resolver posts the real outcome. Arcium decrypts every bet and computes payouts (about `10` seconds).
+4. **Pending resolution** opens a 24–48 hour challenge window. If nobody flags it, the market enters **claimable**.
+5. Winners claim their USDC. Done.
+
+Most markets follow this path with no drama.
+
+## What can go wrong, and what happens
+
+**The resolver doesn't show up.** Every market has a resolution deadline. If the resolver misses it, the market enters **refundable** and bettors can pull their net stake back via Claim Refund.
+
+**Someone flags the resolution.** During the 24–48 hour challenge window, anyone can flag the posted outcome. The market enters **disputed**. An admin reviews the situation and posts the correct outcome via an admin override. After that, the market is **claimable** again.
+
+**A user has multiple bets on the same market.** That's fine. Each bet is a separate position. You claim each one separately.
+
+## How long each phase lasts
+
+Roughly:
+
+- **Betting**: as long as the creator set, usually days or weeks.
+- **Awaiting resolve**: until the resolver acts - could be minutes, could be hours.
+- **Pending resolution / challenge window**: 24 to 48 hours (creator chooses at market creation).
+- **Claimable**: until the claim deadline - typically a few days after the challenge window closes.
+
+If you bet, plan to check back after the market closes. The app will show the right action for the current phase.
+
+## What's next
+
+- [Place a bet](/guides/place-a-bet) - the **Betting** phase from the bettor's perspective.
+- [Claim payout](/guides/claim-payout) - the **Claimable** phase.
+- [Dispute resolution](/guides/dispute-resolution) - what to do during the challenge window.

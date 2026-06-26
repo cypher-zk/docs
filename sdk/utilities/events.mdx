@@ -1,20 +1,20 @@
 ---
-title: "Cypher SDK Events: Subscribe to Real-Time Market Feed"
+title: "Cyphers SDK Events: Subscribe to Real-Time Market Feed"
 sidebarTitle: "Events"
-description: "Subscribe to real-time Cypher program events — market creation, bet placement, resolution, claims, and disputes — using WebSocket or polling fallback."
+description: "Subscribe to real-time Cyphers program events - market creation, bet placement, resolution, claims, and disputes - using WebSocket or polling fallback."
 ---
 
-The Cypher SDK emits strongly typed events for every on-chain action. You can subscribe to a live WebSocket stream via `client.events.subscribeAll`, listen for specific event types, or poll for recent events in environments that do not support WebSockets. All event field names use **camelCase** and all numeric fields are `bigint`.
+The Cyphers SDK emits strongly typed events for every on-chain action. You can subscribe to a live WebSocket stream via `client.events.subscribeAll`, listen for specific event types, or poll for recent events in environments that do not support WebSockets. All event field names use **camelCase** and all numeric fields are `bigint`.
 
 <Warning>
-  Event fields use **camelCase `bigint`** values — not snake_case, not `number`, not BN. For example, use `event.data.payoutAmount` (not `payout_amount`), and `event.data.marketId` (not `market_id`). Passing these values directly to a `Number()` cast is safe for display; use them as `bigint` for arithmetic.
+  Event fields use **camelCase `bigint`** values - not snake_case, not `number`, not BN. For example, use `event.data.payoutAmount` (not `payout_amount`), and `event.data.marketId` (not `market_id`). Passing these values directly to a `Number()` cast is safe for display; use them as `bigint` for arithmetic.
 </Warning>
 
 ---
 
 ## Event types
 
-All event types are emitted by the Cypher program and parsed by the SDK into typed objects. Each event has a `name` discriminant and a `data` object:
+All event types are emitted by the Cyphers program and parsed by the SDK into typed objects. Each event has a `name` discriminant and a `data` object:
 
 ### MarketCreatedEvent
 
@@ -31,7 +31,7 @@ Emitted when `createMarket` or `createMarketMulti` completes.
 
 ### BetPlacedEvent
 
-Emitted after the Arcium MPC callback confirms a bet. Note that `encryptedAmount` and `encryptedSide` are ciphertexts — not the original values.
+Emitted after the Arcium MPC callback confirms a bet. Note that `encryptedAmount` and `encryptedSide` are ciphertexts - not the original values.
 
 | Field | Type | Description |
 |---|---|---|
@@ -119,7 +119,7 @@ Emitted when the Arcium MPC callback writes the resolution.
 
 ## Subscribing to all events
 
-Use `client.events.subscribeAll` to receive a callback for every event emitted by the Cypher program. The subscription uses `Connection.onLogs` under the hood.
+Use `client.events.subscribeAll` to receive a callback for every event emitted by the Cyphers program. The subscription uses `Connection.onLogs` under the hood.
 
 ```typescript
 import { useCypherClient } from "@cypher-zk/sdk/react";
@@ -141,7 +141,7 @@ function useAllEvents(maxItems = 50) {
 }
 ```
 
-The callback receives a `CypherEvent` union — use `event.name` as the discriminant:
+The callback receives a `CypherEvent` union - use `event.name` as the discriminant:
 
 ```typescript
 client.events.subscribeAll((event) => {
@@ -168,7 +168,7 @@ client.events.subscribeAll((event) => {
 
 ## Filtering events for a specific market
 
-`subscribeAll` fires for every event across the entire Cypher program. Filter client-side by checking `event.data.market`:
+`subscribeAll` fires for every event across the entire Cyphers program. Filter client-side by checking `event.data.market`:
 
 ```typescript
 useEffect(() => {
@@ -229,10 +229,10 @@ function ActivityFeed() {
         <li key={i}>
           <strong>{e.name}</strong>
           {e.name === "BetPlacedEvent" && (
-            <span> — {e.data.market.toBase58().slice(0, 8)}… odds: {e.data.entryOdds.toString()}</span>
+            <span> - {e.data.market.toBase58().slice(0, 8)}… odds: {e.data.entryOdds.toString()}</span>
           )}
           {e.name === "PayoutClaimedEvent" && (
-            <span> — ${Number(e.data.payoutAmount) / 1_000_000} to {e.data.user.toBase58().slice(0, 8)}…</span>
+            <span> - ${Number(e.data.payoutAmount) / 1_000_000} to {e.data.user.toBase58().slice(0, 8)}…</span>
           )}
         </li>
       ))}
@@ -254,7 +254,7 @@ import { useCypherClient } from "@cypher-zk/sdk/react";
 function usePolledEvents(refetchIntervalMs = 5_000) {
   const client = useCypherClient();
   return useQuery({
-    queryKey: ["cypher", "events", "polled"],
+    queryKey: ["cyphers", "events", "polled"],
     queryFn: () => client.events.pollEvents({ limit: 50 }),
     refetchInterval: refetchIntervalMs,
   });

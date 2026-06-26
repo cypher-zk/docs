@@ -1,162 +1,155 @@
 ---
-title: "Cypher SDK FAQ: Settlement, Privacy, and Market Rules"
-sidebarTitle: "FAQ"
-description: "Frequently asked questions about Cypher — settlement time, keypair recovery, USDC, privacy, multi-bet support, creator bonds, and dispute resolution."
+title: "FAQ"
+description: "Quick answers to the questions people ask most about Cyphers."
 ---
 
-Got questions about how Cypher works? This page covers the most common ones — from how long MPC settlement takes to what happens when a market expires. If your question isn't here, check [Common Errors](/troubleshooting/common-errors) for SDK-specific issues.
+Short answers to the things that come up most often. If you don't find what you need here, check [Common issues](/troubleshooting/common-errors).
 
-<AccordionGroup>
+## About privacy
 
-<Accordion title="How long does bet settlement take?">
+### Who can see what I bet on?
 
-Settlement involves Arcium's multi-party computation (MPC) network verifying and tallying encrypted bets. The process typically takes **around 10 seconds** end-to-end, but can vary by cluster:
+Nobody, until the market settles. Your chosen side is encrypted in your browser before it ever touches Solana. Other bettors, validators, the Cyphers team - none of them can read your side during the betting window.
 
-| Environment | Typical duration |
-|---|---|
-| Localnet | 5–8 seconds |
-| Devnet | 15–30 seconds |
-| Mainnet | ~10 seconds |
+After settlement, the off-chain network decrypts every position to compute payouts. The market's outcome (which side won) becomes public at that point, but your individual bet's plaintext side stays in the off-chain network - only you can decrypt it on your end using the key in your browser.
 
-From the user's perspective, settlement starts when the `placeBet` transaction lands on-chain and finishes when the Arcium callback fires. Show a progress indicator during this window — the SDK's `onProgress` callback makes this easy:
+### So my wallet is hidden too?
 
-```typescript
-await client.actions.placeBet({
-  market,
-  betAmountUsdc: 5_000_000n,
-  side: "YES",
-  onProgress: ({ stage }) => {
-    if (stage === "awaiting-callback") showSpinner("Settling your bet…");
-    if (stage === "done") hideSpinner();
-  },
-});
-```
+No. Your wallet address is **public** on chain, just like any Solana transaction. Anyone can see that your wallet placed a bet on a particular market. They just can't see *which side* you bet on.
 
-</Accordion>
+If you want to bet without anyone knowing it was *you*, you'd need to also hide your wallet - that's a separate problem Cyphers doesn't solve.
 
-<Accordion title="Can I recover a lost userKeypair?">
+### Is my stake amount hidden?
 
-**No.** The `userKeypair` returned by `placeBet` is generated client-side and never sent to the network or stored by the SDK. If you lose it, there is no recovery path.
+No. The stake amount is **public**. Cyphers hides which side you bet on, not how much. The protocol needs the amount in plain text to track the vault correctly.
 
-You must save it immediately when `placeBet` resolves — before the function returns, before any page navigation, and before any component unmounts:
+### I cleared my browser data. Can I still claim?
 
-```typescript
-const { userKeypair } = await client.actions.placeBet({ ... });
+**Yes.** Clearing browser data only removes your ability to *see* what side you bet on in the app - the side will display as "encrypted" instead of "YES" or "NO."
 
-// ✅ Save before doing anything else
-await db.saveKeypair(market.marketId, userKeypair.secretKey);
-```
+Your money is completely safe:
 
-A lost `userKeypair` means you can no longer decrypt your encrypted position data for that bet. Your USDC stake is still on-chain and claimable — but you won't be able to read back your encrypted bet details through the SDK.
+- The protocol already knows whether you won (the off-chain network decrypted your bet at settlement).
+- When you click Claim, the protocol pays out directly. It doesn't need your local key.
 
-</Accordion>
+So: cleared browser data = a UX problem (you can't see your own side), not a money problem (you can still claim).
 
-<Accordion title="What happens when a market expires without being resolved?">
+### Can I export my secret to another device?
 
-If a market's resolver doesn't submit a resolution before the resolution deadline, the market enters the **refundable** phase. In this state, all participants can claim a full refund of their original stake:
+Right now, the secret lives in your browser's local storage and there's no built-in export. If you need to move it, you can copy the value out of local storage manually (it's stored under a key starting with `cyphers:pos:`). Paste it into the new device's local storage with the same key name.
 
-```typescript
-import { marketPhase } from "@cypher-zk/sdk";
+A proper export/import flow is on the roadmap.
 
-if (marketPhase(market) === "refundable") {
-  await client.actions.claimRefund({ market });
-}
-```
+## About betting
 
-The refund period has a deadline too — claims must be submitted before `market.refundDeadline`. After that deadline, remaining funds can only be recovered by the protocol admin. Check `marketPhase(market)` to determine exactly which actions are available at any given time.
+### What's the minimum bet?
 
-</Accordion>
+`$1` USDC. Bets below that are rejected.
 
-<Accordion title="Can I place multiple bets on the same market?">
+### What's the maximum bet?
 
-**Yes, as of SDK v0.8.0.** You can place multiple bets on the same market from the same wallet. Each bet creates a separate `EncryptedPosition` account identified by a `betIndex`.
+There's no protocol-level maximum. Practically, your bet is limited by:
 
-The SDK handles `betIndex` automatically when you use `client.actions.placeBet`. To fetch all your positions on a single market:
+- Your USDC balance.
+- The market's available pool size (very large bets on small markets will move the odds against you significantly).
 
-```typescript
-const positions = await client.positions.byUser(wallet.publicKey);
-const marketPositions = positions.filter(
-  ({ account }) => account.market.equals(marketPda)
-);
-```
+### Why is my YES bet showing as YES (or NO showing as NO)?
 
-Prior to v0.8.0, a second bet on the same market would fail with a seeds constraint error.
+It should. If you're seeing the opposite - "I bet YES but the market shows me on NO" - that was a bug in older versions of the SDK that's been fixed. Make sure you're using the latest version of the app.
 
-</Accordion>
+### Why does the bet take so long to confirm?
 
-<Accordion title="What currency do markets use?">
+A bet has two parts:
 
-All Cypher prediction markets settle in **USDC on Solana**. USDC uses 6 decimal places — 1 USDC equals `1_000_000` in raw token units.
+1. **The Solana transaction.** This confirms in about one second.
+2. **The off-chain settlement.** Arcium decrypts your bet and updates the market's pools. This takes about 10 seconds on devnet.
 
-The accepted mint address is not hardcoded — it's stored in the protocol's on-chain `GlobalState` account. Always read it at runtime:
+The whole thing usually finishes in 10–30 seconds. You can leave the page after step 1 - the app picks up where it left off when you come back.
 
-```typescript
-const { acceptedMint } = await client.globalState.fetch();
-```
+### Can I cancel a bet?
 
-The minimum bet size is `1_000_000` raw units ($1 USDC). When creating a market, the creator bond is at least `10_000_000` raw units ($10 USDC).
+No. Once your bet lands on Solana, it's part of the market. You can't pull it back. The only way to recoup is to win the market, or claim a refund if the resolver vanishes.
 
-</Accordion>
+## About markets
 
-<Accordion title="Is my prediction visible to other users?">
+### Can anyone create a market?
 
-**Your prediction (YES or NO, or multi-outcome choice) is fully private.** Your stake amount is also encrypted. The only information visible on-chain is the aggregate pool sizes, which are revealed by Arcium MPC after the market resolves.
+Yes. You post a USDC bond (minimum `$20`) and the market is yours. See [Create a market](/guides/create-a-market).
 
-Specifically:
-- Your vote/side is encrypted with your x25519 `userKeypair` before it leaves your device
-- Your bet amount is encrypted with the same key
-- The Arcium cluster can verify computation correctness without learning individual inputs
-- Only the aggregate totals (`revealedPool0`, `revealedPool1`, etc.) are published after resolution
+### Who decides the outcome?
 
-This privacy is enforced by the protocol — it's not a UI-level feature that can be bypassed.
+The **resolver**, set by the market creator. By default it's the creator themselves. It can also be a team wallet, a multisig, or any other Solana address.
 
-</Accordion>
+### What if the resolver picks the wrong answer?
 
-<Accordion title="How does the creator bond work?">
+Anyone can flag the result during the 24–48 hour challenge window. The market enters Disputed and an admin reviews. If the resolution was wrong, the admin posts the correct one. See [Dispute resolution](/guides/dispute-resolution).
 
-When you create a market, you lock a **creator bond** of at least $10 USDC as a deposit. The bond is held in the market vault and returned to you when the market resolves accurately and you withdraw your creator funds.
+### What if the resolver never shows up?
 
-The bond serves two purposes:
-1. **Spam prevention** — it costs real money to create a market, discouraging low-quality or malicious markets
-2. **Resolver accountability** — the bond is at risk if you, as the resolver, behave dishonestly (an admin can override your resolution during a dispute)
+After the resolution deadline passes, the market enters **Refundable** and bettors can pull their stakes back. The creator's bond is held until the admin closes things out.
 
-To withdraw your bond and any LP fees after a market resolves:
+## About payouts
 
-```typescript
-await client.actions.withdrawCreatorFunds({ market });
-```
+### How is my payout calculated?
 
-The minimum bond is `10_000_000` raw units ($10 USDC). There is no upper bound — you can post a larger bond if you want to signal higher confidence in your resolution.
+Roughly: `your_stake × pool_total / winning_side_pool`, adjusted slightly at settlement so the protocol can't pay out more than's in the vault.
 
-</Accordion>
+The odds you see at bet time are **locked in** - even if everyone piles into your side after you, your payout is calculated against the odds you got.
 
-<Accordion title="Can I dispute a market resolution?">
+For the full math, see [Fees and odds](/how-it-works/fees#how-odds-work).
 
-**Yes.** After a resolver submits a resolution, Cypher v0.2+ opens a **challenge window of 24–48 hours** (set by the market creator at creation time). During this window, anyone can flag the resolution as potentially incorrect:
+### When can I claim?
 
-```typescript
-// Flag a resolution you believe is wrong (anyone can call this)
-await client.actions.flagResolution({ market });
-```
+Only after the market reaches the **Claimable** phase. That requires:
 
-Once flagged, the market enters a `disputed` state and is escalated for admin review. The admin can then override the resolution with the correct outcome via `adminOverrideResolution`.
+1. Betting closes.
+2. The resolver posts the outcome.
+3. The off-chain network decrypts every bet (about 10 seconds).
+4. The 24–48 hour challenge window passes undisputed (or an admin resolves a dispute).
 
-If no one flags the resolution during the window, any user can finalize it:
+Before that, the Claim button stays disabled. The app shows you the current phase.
 
-```typescript
-// Finalize an uncontested resolution after the window elapses
-await client.actions.finalizeResolution({ market });
-```
+### What if I miss the claim deadline?
 
-Use `marketPhase(market)` to determine which actions are available:
+Each Claimable market has a claim deadline (typically a few days). After the deadline, unclaimed payouts go to the protocol's admin sweep for accounting. Claim promptly.
 
-| Phase | Meaning | Available action |
-|---|---|---|
-| `pendingResolution` | Inside challenge window, not disputed | `flagResolution` |
-| `awaitingFinalize` | Window elapsed, not disputed | `finalizeResolution` |
-| `disputed` | Flagged — admin reviewing | None (wait for admin) |
-| `claimable` | Finalized — payouts open | `claimPayout` |
+## About fees
 
-</Accordion>
+### What are the fees?
 
-</AccordionGroup>
+Two come out of every bet:
+
+- **Protocol fee** (`0.5%` typical, max `1%`) - goes to the protocol treasury.
+- **Market-creator fee** (`1.5%` typical, max `5%`) - goes to whoever opened the market.
+
+Total: typically about `2%` of your bet. Cheaper than most centralized prediction markets.
+
+The app shows you the exact fees before you confirm. See [Fees and odds](/how-it-works/fees).
+
+### Are there gas fees?
+
+You pay a small Solana transaction fee in SOL (about `$0.0005`) on every action. That's it. No platform gas fee on top.
+
+## About the protocol
+
+### Is Cyphers audited?
+
+The on-chain program has been reviewed by security firms; full audit reports will be linked in the public repo before mainnet launch. The encryption protocol uses standard, well-studied primitives (x25519 + a stream cipher).
+
+### Is Cyphers on mainnet?
+
+Cyphers is in beta on Solana devnet. Mainnet launch is planned - follow the GitHub for updates.
+
+### Can I run my own resolver bot?
+
+Yes. The `@cypher-zk/sdk` exposes the resolution actions. See the [SDK Reference](/sdk/overview) for the API.
+
+### Where do I report a bug?
+
+Open an issue at [github.com/cypher-zk](https://github.com/cypher-zk). For security issues, email the team directly rather than filing a public issue.
+
+## What's next
+
+- [Common issues](/troubleshooting/common-errors) - error messages and what they mean.
+- [How privacy works](/how-it-works/privacy-model) - deeper on the encryption.
+- [SDK Reference](/sdk/overview) - for developers building on Cyphers.

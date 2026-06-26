@@ -1,10 +1,10 @@
 ---
-title: "Network Config: Solana Devnet vs Mainnet for Cypher"
+title: "Network Config: Solana Devnet vs Mainnet for Cyphers"
 sidebarTitle: "Network"
 description: "Switch between Solana devnet and mainnet in CypherClient, configure your RPC endpoint, and read the USDC mint address safely from on-chain state."
 ---
 
-Cypher runs on two Solana clusters: **devnet** for development and testing, and **mainnet-beta** for production. The `cluster` option in `CypherClient` controls which cluster your app targets — it configures the Arcium MPC endpoint, the expected token mint, and other protocol-level constants automatically. This page shows you how to switch between clusters and what to watch out for when moving to production.
+Cyphers runs on two Solana clusters: **devnet** for development and testing, and **mainnet-beta** for production. The `cluster` option in `CypherClient` controls which cluster your app targets - it configures the Arcium MPC endpoint, the expected token mint, and other protocol-level constants automatically. This page shows you how to switch between clusters and what to watch out for when moving to production.
 
 ## Setting the cluster
 
@@ -63,12 +63,12 @@ const client = new CypherClient({
 ```
 
 <Note>
-  The public `getProgramAccounts` endpoint used by `client.markets.all()` is slow on public RPCs. If your app lists many markets, use a dedicated provider and filter aggressively — for example, `{ state: MarketState.Active }` — or move to an off-chain indexer.
+  The public `getProgramAccounts` endpoint used by `client.markets.all()` is slow on public RPCs. If your app lists many markets, use a dedicated provider and filter aggressively - for example, `{ state: MarketState.Active }` - or move to an off-chain indexer.
 </Note>
 
 ## Reading the USDC mint address
 
-Cypher markets use USDC as their settlement currency. The accepted mint address is stored in the protocol's on-chain `GlobalState` account — you should always read it from there rather than hardcoding it.
+Cyphers markets use USDC as their settlement currency. The accepted mint address is stored in the protocol's on-chain `GlobalState` account - you should always read it from there rather than hardcoding it.
 
 ```typescript
 // ✅ Read the mint from GlobalState
@@ -110,7 +110,7 @@ const client = new CypherClient({
 
 ## Program ID
 
-The Cypher program is deployed at the same address on both clusters:
+The Cyphers program is deployed at the same address on both clusters:
 
 ```
 CYPHERKLYj1bZtWv7Xut6Snw13ab1DwdJia5ZSEeVeej
@@ -138,4 +138,4 @@ spl-token create-account <ACCEPTED_MINT> --url devnet
 spl-token mint <ACCEPTED_MINT> 100 --url devnet
 ```
 
-Replace `<ACCEPTED_MINT>` with the value of `GlobalState.acceptedMint` on devnet. USDC uses 6 decimal places — 1 USDC equals `1_000_000` in raw token units.
+Replace `<ACCEPTED_MINT>` with the value of `GlobalState.acceptedMint` on devnet. USDC uses 6 decimal places - 1 USDC equals `1_000_000` in raw token units.

@@ -1,13 +1,13 @@
 ---
-title: "Bet Actions: Place Encrypted Predictions on Cypher"
+title: "Bet Actions: Place Encrypted Predictions on Cyphers"
 sidebarTitle: "Bets"
-description: "Place privacy-preserving bets on Cypher markets. Your chosen side is encrypted with Arcium MPC before submission and never exposed on-chain."
+description: "Place privacy-preserving bets on Cyphers markets. Your chosen side is encrypted with Arcium MPC before submission and never exposed on-chain."
 ---
 
-`placeBet` is the primary way users interact with Cypher markets. Before the transaction is submitted, the SDK generates a fresh x25519 keypair, derives a shared secret with the Arcium MXE, and encrypts both the outcome side and stake amount using RescueCipher. Only the encrypted ciphertexts land on-chain — your chosen side remains private even after settlement.
+`placeBet` is the primary way users interact with Cyphers markets. Before the transaction is submitted, the SDK generates a fresh x25519 keypair, derives a shared secret with the Arcium MXE, and encrypts both the outcome side and stake amount using RescueCipher. Only the encrypted ciphertexts land on-chain - your chosen side remains private even after settlement.
 
 <Warning>
-  **Persist `userKeypair.privateKey` immediately after a successful bet.** This is the only key that can decrypt your position to reveal which side you bet on. There is no recovery path — the key is generated client-side and never transmitted to any server. If you lose it, your funds are still claimable, but you will not be able to pre-verify whether you are a winner before paying for the MPC computation.
+  **Persist `userKeypair.privateKey` immediately after a successful bet.** This is the only key that can decrypt your position to reveal which side you bet on. There is no recovery path - the key is generated client-side and never transmitted to any server. If you lose it, your funds are still claimable, but you will not be able to pre-verify whether you are a winner before paying for the MPC computation.
 </Warning>
 
 ## placeBet
@@ -41,7 +41,7 @@ await saveSecret(marketId, betIndex, userKeypair.privateKey);
 </ParamField>
 
 <ParamField path="onProgress" type="(event: ActionProgressEvent) => void">
-  Optional callback invoked at each stage of the bet flow. Use this to drive progress UI — see the stage reference below.
+  Optional callback invoked at each stage of the bet flow. Use this to drive progress UI - see the stage reference below.
 </ParamField>
 
 ### Return value
@@ -72,7 +72,7 @@ await saveSecret(marketId, betIndex, userKeypair.privateKey);
 | `"submitting"` | ~1–2 s | Sends the transaction and awaits slot confirmation |
 | `"awaiting-callback"` | 8–30 s | Arcium MPC nodes run the circuit and submit the callback |
 | `"refetching"` | ~300 ms | Re-fetches the position account to confirm on-chain state |
-| `"done"` | — | Flow complete; return value is ready |
+| `"done"` | - | Flow complete; return value is ready |
 
 <Note>
   The `"awaiting-callback"` stage involves a round-trip through the Arcium MPC cluster and typically takes **8–30 seconds** on devnet. Display a spinner or streaming label during this stage so users know the network is working, not stalled.

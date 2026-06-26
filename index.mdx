@@ -1,83 +1,37 @@
 ---
-title: "Cypher Protocol: Private Prediction Markets on Solana"
+title: "Cyphers"
 sidebarTitle: "Home"
-description: "Cypher lets users place encrypted bets on real-world outcomes. Predictions stay private on-chain until Arcium MPC reveals results at settlement."
+description: "Private prediction markets on Solana. Bet on what happens next without revealing your side."
 ---
 
-Cypher is a privacy-preserving prediction market protocol built on Solana. Unlike traditional prediction markets where every bet is visible the moment it's placed, Cypher encrypts your chosen side client-side using x25519 and RescueCipher — so the network sees your stake, but never your prediction. When a market closes, Arcium's Multi-Party Computation network decrypts and settles all positions in a single tamper-proof computation, then pays out winners automatically in USDC.
+Cyphers is a prediction market where what you think is private. Other prediction markets show every bet to everyone the moment it lands. On Cyphers, your side stays encrypted until the market closes - anyone can see *that* you bet and how much, but no one can see *what you bet on*.
+
+When the market settles, an off-chain network called [Arcium](https://arcium.com) decrypts everything in one secure computation, pays out winners, and writes the result back to Solana.
 
 <CardGroup cols={2}>
-  <Card
-    title="Introduction"
-    icon="book-open"
-    href="/introduction"
-  >
-    Learn what Cypher is, how privacy works, and what you can build with the SDK.
+  <Card title="What is Cyphers?" icon="book-open" href="/introduction">
+    Why private bets matter and what makes Cyphers different.
   </Card>
-  <Card
-    title="Quickstart"
-    icon="rocket"
-    href="/quickstart"
-  >
-    Install the SDK, connect your wallet, and place your first encrypted bet in under 5 minutes.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Connect your wallet, pick a market, and place your first bet.
   </Card>
-  <Card
-    title="Place a Bet"
-    icon="lock"
-    href="/guides/place-a-bet"
-  >
-    Step-by-step guide to encrypting and submitting a prediction from your app.
+  <Card title="How privacy works" icon="lock" href="/how-it-works/privacy-model">
+    Plain-English explanation of the encryption and what stays hidden.
   </Card>
-  <Card
-    title="SDK Reference"
-    icon="code"
-    href="/sdk/overview"
-  >
-    Full API reference for `@cypher-zk/sdk` — clients, actions, hooks, and events.
+  <Card title="FAQ" icon="circle-question" href="/troubleshooting/faq">
+    Quick answers to common questions.
   </Card>
 </CardGroup>
 
-## How it works
+## Three things to know
 
-Getting from zero to a placed bet takes three steps. The SDK handles the encryption and MPC orchestration for you — you just initialize a client, find a market, and call `placeBet`.
+- **Your side is hidden.** Cyphers encrypts your YES or NO (or your chosen option) in your browser before it ever touches Solana.
+- **Your stake is public.** The amount you bet is visible on chain. This is on purpose - the protocol needs it to track funds.
+- **Payouts are automatic.** When a market resolves, winners can claim their USDC. No middleman, no manual approval.
 
-<Steps>
-  <Step title="Install the SDK">
-    Add `@cypher-zk/sdk` and Solana web3.js v1 to your project.
+## Pick your path
 
-    ```bash
-    npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
-    ```
-  </Step>
-  <Step title="Connect your wallet">
-    Create a `CypherClient` with your RPC connection and wallet adapter. The constructor is synchronous — no async setup required.
-
-    ```typescript
-    import { CypherClient } from "@cypher-zk/sdk";
-    import { Connection } from "@solana/web3.js";
-
-    const client = new CypherClient({
-      connection: new Connection("https://api.devnet.solana.com"),
-      wallet,
-      cluster: "devnet",
-    });
-    ```
-  </Step>
-  <Step title="Place an encrypted bet">
-    Call `client.actions.placeBet` with your chosen market and side. The SDK encrypts your prediction before it ever touches Solana.
-
-    ```typescript
-    const { sig, userKeypair } = await client.actions.placeBet({
-      marketId: 1n,
-      side: 1,          // 1 = YES, 0 = NO
-      betAmountUsdc: 5_000_000n,  // $5 USDC
-    });
-
-    // ⚠️ Persist userKeypair.privateKey — it cannot be recovered on-chain
-    localStorage.setItem(
-      `secret:${marketId}`,
-      Buffer.from(userKeypair.privateKey).toString("hex"),
-    );
-    ```
-  </Step>
-</Steps>
+- **New to Cyphers?** Start with [Introduction](/introduction) for the why, then [Quickstart](/quickstart) for the how.
+- **Want to bet?** Jump to [Place a bet](/guides/place-a-bet).
+- **Want to run a market?** See [Create a market](/guides/create-a-market).
+- **Building on top?** The [SDK Reference](/sdk/overview) tab covers `@cypher-zk/sdk`.

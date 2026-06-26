@@ -1,10 +1,10 @@
 ---
-title: "Claim Actions: Collect Payouts and Refunds on Cypher"
+title: "Claim Actions: Collect Payouts and Refunds on Cyphers"
 sidebarTitle: "Claims"
-description: "Claim winning payouts from resolved Cypher markets or retrieve refunds when a market expires without resolution, gated by market phase."
+description: "Claim winning payouts from resolved Cyphers markets or retrieve refunds when a market expires without resolution, gated by market phase."
 ---
 
-After a market resolves, winners call `claimPayout` to receive their proportional share of the losing-side pool. If a market never resolves before its `resolutionDeadline`, bettors call `claimRefund` to reclaim their full `netAmount`. Both actions invoke an Arcium MPC computation — the circuit decrypts your position on-chain and writes the result without ever revealing your chosen side to observers.
+After a market resolves, winners call `claimPayout` to receive their proportional share of the losing-side pool. If a market never resolves before its `resolutionDeadline`, bettors call `claimRefund` to reclaim their full `netAmount`. Both actions invoke an Arcium MPC computation - the circuit decrypts your position on-chain and writes the result without ever revealing your chosen side to observers.
 
 <Warning>
   Always check `marketPhase(market)` before calling either claim action. Submitting a claim in the wrong phase will fail on-chain and still cost the user transaction fees. Gate every claim button behind a phase check.
@@ -23,7 +23,7 @@ const market = await client.markets.fetchByPda(marketId);
 const phase = marketPhase(market);
 
 if (phase !== "claimable") {
-  throw new Error(`Cannot claim payout — market is: ${phase}`);
+  throw new Error(`Cannot claim payout - market is: ${phase}`);
 }
 
 const { sig } = await client.actions.claimPayout({ market: marketId });
@@ -59,7 +59,7 @@ const market = await client.markets.fetchByPda(marketId);
 const phase = marketPhase(market);
 
 if (phase !== "refundable") {
-  throw new Error(`Cannot claim refund — market is: ${phase}`);
+  throw new Error(`Cannot claim refund - market is: ${phase}`);
 }
 
 const { sig } = await client.actions.claimRefund({ market: marketId });

@@ -1,164 +1,104 @@
 ---
-title: "Cypher SDK Quickstart: Place Your First Encrypted Bet"
-sidebarTitle: "Quickstart"
-description: "Install @cypher-zk/sdk, connect your Solana wallet, and place your first privacy-preserving encrypted prediction in under 5 minutes."
+title: "Quickstart"
+description: "Connect a wallet, find a market, and place your first private bet on Cyphers."
 ---
 
-This guide walks you through installing the Cypher SDK, connecting to Solana, fetching available markets, and placing your first encrypted bet. By the end you'll have a working TypeScript snippet you can drop into any Solana wallet-adapter app.
+This page walks you through your first bet on Cyphers, end to end. No code - just the steps you take in the app. You'll be done in a few minutes.
+
+## What you need
+
+- A **Solana wallet**. Phantom, Solflare, Backpack, or any wallet that supports Solana works. If you don't have one, install Phantom from [phantom.app](https://phantom.app).
+- A small amount of **SOL** for transaction fees (about `$0.50` is plenty).
+- Some **USDC** on Solana. The minimum bet is `$1`, but bring whatever you're comfortable putting up. You can swap SOL for USDC on any Solana DEX (Jupiter, Raydium, Phantom's built-in swap).
+
+<Note>
+  Cyphers runs on Solana devnet during the beta. Devnet uses a test USDC mint that has no real value - there's a built-in faucet in the app to top you up.
+</Note>
+
+## Place your first bet
 
 <Steps>
-  <Step title="Install the SDK">
-    Install `@cypher-zk/sdk` alongside Solana's web3.js library. Cypher requires **web3.js v1** — do not install `@solana/web3.js@latest`, which is a completely incompatible v2 rewrite.
-
-    ```bash
-    npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
-    ```
-
-    If you're building a React app, no extra packages are needed — the React hooks ship inside the same package at the `@cypher-zk/sdk/react` subpath.
+  <Step title="Open the app">
+    Go to the Cyphers web app and click **Connect Wallet** in the top right. Your wallet extension will pop up and ask you to approve the connection.
 
     <Tip>
-      Pin `@solana/web3.js` to `^1.95.4` in your `package.json` to prevent accidental upgrades to the incompatible v2 rewrite.
+      If nothing happens, check that your wallet is unlocked and that it's set to the right network (Devnet during the beta, Mainnet after launch).
     </Tip>
   </Step>
 
-  <Step title="Initialize CypherClient">
-    Create a `CypherClient` by passing your RPC `Connection` and a wallet adapter. The constructor is **synchronous** — no `await` needed, and no RPC call fires at this point.
+  <Step title="Pick a market">
+    Browse the **Markets** page. Each card shows the question, the current odds (how the pool is split between the sides), how much has been bet in total, and how long until the market closes.
 
-    <Tabs>
-      <Tab title="React (wallet adapter)">
-        ```typescript
-        import { CypherClient } from "@cypher-zk/sdk";
-        import { useWallet, useConnection } from "@solana/wallet-adapter-react";
-
-        function useClient() {
-          const { connection } = useConnection();
-          const wallet = useWallet();
-
-          // Wallet must be connected before constructing the client
-          if (!wallet.connected || !wallet.publicKey) return null;
-
-          return new CypherClient({
-            connection,
-            wallet,          // AnchorWallet from @solana/wallet-adapter-react
-            cluster: "devnet",
-            commitment: "confirmed",
-          });
-        }
-        ```
-      </Tab>
-      <Tab title="Node.js (keypair)">
-        ```typescript
-        import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
-        import { Connection, Keypair } from "@solana/web3.js";
-        import bs58 from "bs58";
-
-        const keypair = Keypair.fromSecretKey(
-          bs58.decode(process.env.WALLET_PRIVATE_KEY!)
-        );
-
-        const client = new CypherClient({
-          connection: new Connection("https://api.devnet.solana.com", "confirmed"),
-          wallet: keypairToWallet(keypair),
-          cluster: "devnet",
-        });
-        ```
-      </Tab>
-    </Tabs>
-
-    The client exposes namespaced methods: `client.markets`, `client.positions`, `client.actions`, `client.events`, and more.
+    Look for a market in the **betting** phase - that's the only phase that accepts new bets.
   </Step>
 
-  <Step title="Fetch available markets">
-    Use `client.markets.all()` to load every market, or narrow by state to show only markets currently accepting bets. Questions are stored in a separate on-chain account — use `fetchMarketQuestions` to batch-fetch them.
+  <Step title="Choose a side and an amount">
+    Click into a market. You'll see a bet panel with the available sides:
 
-    ```typescript
-    import { fetchMarketQuestions, marketPhase, MarketState } from "@cypher-zk/sdk";
+    - For a **YesNo** market: a YES button and a NO button.
+    - For a **MultiOutcome** market: one button per option (`2` to `4` options).
 
-    // Fetch all markets
-    const markets = await client.markets.all();
-
-    // Batch-fetch question text for each market
-    const questionMap = await fetchMarketQuestions(client, markets);
-
-    for (const { publicKey, account } of markets) {
-      const pda = publicKey.toBase58();
-      const rawQuestion =
-        questionMap.get(pda) ||
-        account.inlineQuestion ||
-        `Market #${account.marketId}`;
-
-      const phase = marketPhase(account);
-      console.log(`[${phase}] ${rawQuestion}`);
-    }
-    ```
-
-    <Tip>
-      Filter to open markets with `client.markets.byState(MarketState.Active)` to avoid loading closed or resolved markets you can't bet on.
-    </Tip>
+    Pick a side. Enter the amount in USDC - the minimum is `$1`. The app shows you the fees before you confirm.
   </Step>
 
-  <Step title="Place an encrypted bet">
-    Call `client.actions.placeBet` with the market ID, your chosen side, and a stake amount in USDC micro-units (6 decimals, so `5_000_000n` = $5). The SDK encrypts your side client-side, submits the transaction, and waits for the Arcium MPC callback — the full round trip takes roughly 8–30 seconds.
+  <Step title="Confirm the transaction">
+    Click **Bet**. Your wallet pops up with a transaction to sign. Approve it.
 
-    Use the optional `onProgress` callback to update your UI during each stage.
+    Behind the scenes:
 
-    ```typescript
-    import { marketPhase } from "@cypher-zk/sdk";
+    - Your browser encrypts your side using a fresh keypair.
+    - The transaction submits the encrypted bet to Solana.
+    - The Arcium network processes it within around `10` seconds.
 
-    const market = markets[0];
-    const phase = marketPhase(market.account);
-
-    if (phase !== "betting") {
-      throw new Error(`Market is not open for betting (phase: ${phase})`);
-    }
-
-    const result = await client.actions.placeBet(
-      {
-        marketId: market.account.marketId,
-        side: 1,                   // 1 = YES (or the outcome index for MultiOutcome)
-        betAmountUsdc: 5_000_000n, // $5 USDC
-      },
-      {
-        onProgress({ stage, message }) {
-          // stages: "validating" → "fetching-state" → "encrypting"
-          //         → "submitting" → "awaiting-callback" → "refetching" → "done"
-          console.log(`[${stage}] ${message ?? ""}`);
-        },
-      }
-    );
-
-    console.log("Transaction:", result.sig);
-    console.log("Position PDA:", result.position.publicKey.toBase58());
-    ```
+    The app shows progress for each step. You don't need to do anything during the wait.
   </Step>
 
-  <Step title="Persist the user keypair">
-    `placeBet` returns a `userKeypair` — the x25519 key pair used to encrypt your prediction. **You must save `userKeypair.privateKey`** immediately after the call returns. There is no on-chain recovery path; without it, the user can never decrypt their position or claim their payout.
+  <Step title="See your position">
+    Go to the **Positions** tab. Your bet appears there with:
 
-    ```typescript
-    const { sig, userKeypair, position } = await client.actions.placeBet({ ... });
+    - The side you picked.
+    - Your stake.
+    - The odds you locked in at bet time.
+    - The market's status.
 
-    const marketId = position.account.market.toBase58();
-    const betIndex = position.account.betIndex.toString();
-
-    // Key by (market, betIndex) — a wallet can hold multiple positions per market
-    const secretKey = `cypher:secret:${marketId}:${betIndex}`;
-    localStorage.setItem(secretKey, Buffer.from(userKeypair.privateKey).toString("hex"));
-    ```
-
-    <Warning>
-      **Never skip this step.** If `userKeypair.privateKey` is lost, the user's position exists on-chain but their payout can never be claimed. Store it in `localStorage`, a database, or any persistent store you control — but store it immediately, before any navigation or page reload can occur.
-    </Warning>
+    Your side is only visible to you (the app decrypts it locally). Anyone else looking at the chain sees encrypted bytes.
   </Step>
 </Steps>
 
-## Next steps
+## Wait for resolution
 
-<CardGroup cols={2}>
-  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
-    Understand markets, pools, positions, and the full lifecycle from betting through settlement.
-  </Card>
-  <Card title="SDK Reference" icon="code" href="/sdk/overview">
-    Full API docs for every action, hook, fetcher, and event in `@cypher-zk/sdk`.
-  </Card>
-</CardGroup>
+Once the market closes:
+
+- Betting stops. No new positions can be opened.
+- The resolver posts the real-world outcome.
+- The Arcium network decrypts every position and computes payouts (about `10` seconds).
+- A 24–48 hour challenge window opens. During this window anyone can flag a wrong-looking resolution.
+- After the window passes undisputed, the market becomes claimable.
+
+For the full timeline, see [Market lifecycle](/how-it-works/lifecycle).
+
+## Claim your payout
+
+If you picked the winning side, your position is now claimable.
+
+<Steps>
+  <Step title="Open your position">
+    Go to **Positions** and find the resolved market. The card shows your stake, your side, and your projected payout.
+  </Step>
+  <Step title="Click Claim">
+    Sign the transaction in your wallet. USDC lands in your account a few seconds later.
+  </Step>
+</Steps>
+
+<Note>
+  If the market resolved against you, there's nothing to claim. The position stays in your history as a record.
+</Note>
+
+If something looks wrong with the resolution, you can dispute it during the challenge window. See [Dispute resolution](/guides/dispute-resolution).
+
+## What's next
+
+- [How privacy works](/how-it-works/privacy-model) - what's actually hidden and what isn't.
+- [Place a bet](/guides/place-a-bet) - a longer walkthrough with edge cases.
+- [Create a market](/guides/create-a-market) - open your own market and earn fees.
+- [FAQ](/troubleshooting/faq) - quick answers to common questions.

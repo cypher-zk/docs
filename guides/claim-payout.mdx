@@ -1,220 +1,94 @@
 ---
-title: "Claim Payout or Refund on Cypher After Market Resolution"
-sidebarTitle: "Claim Payout"
-description: "Check your market's phase, then claim your USDC winnings after a correct prediction or reclaim your stake if a market expired without resolution."
+title: "Claim a payout"
+description: "Collect your winnings after a market resolves in your favor - or pull your stake back if the resolver didn't show up."
 ---
 
-After a Cypher market resolves, winners can claim their USDC payout and bettors on unresolved markets can reclaim their stake. The exact action you call depends on the market's current phase — calling the wrong one will revert on-chain. This guide shows you how to read the phase, choose the right claim path, and execute the transaction.
+When a market you bet on resolves, two things can happen: it pays you out (if you picked the winning side), or it doesn't (if you didn't). This guide walks through both - plus the case where you can claim a refund because the resolver never posted an outcome.
 
-## How the claim flow works
+## Wait for the market to be claimable
 
-Cypher uses Arcium MPC to compute payouts privately. When a resolver posts an outcome, the market enters a **challenge window** (`pendingResolution`) before transitioning to `claimable`. You must wait for finalization before claims open.
+You can't claim immediately when a market closes. The full sequence is:
 
-The full phase sequence is:
+1. **Betting closes** when the close time hits.
+2. **The resolver posts the outcome.** Arcium decrypts every position (`~10` seconds).
+3. **The challenge window opens** for 24–48 hours. Anyone can flag the result.
+4. **The market becomes claimable** once the window passes undisputed (or an admin resolves a dispute).
 
-```
-betting → awaitingResolve → pendingResolution → awaitingFinalize → claimable
-                                                       ↓ (if disputed)
-                                                    disputed → (admin override) → claimable
-```
+Only after step 4 can you claim. The app's status badge tells you which phase the market is in - wait until it shows **Claimable**.
 
-If the resolver misses their deadline, the market becomes `refundable` instead — see the [refund path](#refund-path) below.
+## Claim a payout
 
----
-
-## Steps
+If you bet on the winning side, your position is now claimable.
 
 <Steps>
+  <Step title="Open Positions">
+    Go to the **Positions** tab. Find the resolved market in your list.
 
-### Check the market phase
+    Each card shows:
+    - Your side and stake.
+    - The market's outcome.
+    - Your projected payout.
+  </Step>
 
-Always gate your claim call behind `marketPhase()`. It returns a string literal that tells you exactly what action is available right now.
+  <Step title="Click Claim">
+    A green **Claim** button is visible on positions where you won. Click it.
 
-```typescript
-import { marketPhase } from '@cypher-zk/sdk';
+    Your wallet pops up with a single transaction to sign.
+  </Step>
 
-const market = await client.markets.fetch(marketId);
-const phase = marketPhase(market);
-
-console.log('Current phase:', phase);
-// 'claimable'  → call claimPayout
-// 'refundable' → call claimRefund
-// 'pendingResolution' | 'awaitingFinalize' | 'disputed' → not yet — wait for finalization
-```
-
-<Warning>
-  Never call `claimPayout` when `marketPhase !== 'claimable'`. The SDK
-  pre-flight check and the on-chain contract will both reject it, but you'll
-  still pay transaction fees. Always check the phase first.
-</Warning>
-
-### Ensure the market is finalized
-
-If the phase is `awaitingFinalize`, anyone can push the market to `claimable` by calling `finalizeResolution`. This is a permissionless, low-cost transaction.
-
-```typescript
-if (phase === 'awaitingFinalize') {
-  await client.actions.finalizeResolution({ market: marketPubkey });
-  // Phase is now 'claimable'
-}
-```
-
-If the phase is still `pendingResolution`, the challenge window hasn't elapsed yet. Check back after `market.challengeDeadline`. See the [Dispute Resolution guide](/guides/dispute-resolution) for details on the challenge window.
-
-### Claim your payout
-
-Once the phase is `claimable`, call `claimPayout`. The MPC circuit decrypts your encrypted bet and computes your share of the winning pool.
-
-```typescript
-import { marketPhase } from '@cypher-zk/sdk';
-
-const market = await client.markets.fetch(marketId);
-
-if (marketPhase(market) === 'claimable') {
-  const result = await client.actions.claimPayout({
-    market: marketPubkey,
-    onProgress: (event) => console.log('[claim]', event.stage),
-  });
-  console.log('Claimed! tx:', result.signature);
-}
-```
-
-<Warning>
-  To decrypt your bet during the payout computation, Arcium needs the
-  x25519 private key you saved when placing your bet. If you lost
-  `userKeypair.privateKey`, the MPC circuit will still run — but will
-  compute a payout of zero and mark your position as claimed without
-  transferring any funds. Always save the key at bet time as described in
-  the [Place a Bet guide](/guides/place-a-bet).
-</Warning>
-
-### Refund path
-
-If the market resolver missed their deadline, the market enters the `refundable` phase. Use `claimRefund` instead of `claimPayout` — the contract returns your original stake (minus any protocol fee).
-
-```typescript
-if (marketPhase(market) === 'refundable') {
-  const result = await client.actions.claimRefund({
-    market: marketPubkey,
-    onProgress: (event) => console.log('[refund]', event.stage),
-  });
-  console.log('Refunded! tx:', result.signature);
-}
-```
-
+  <Step title="Wait for confirmation">
+    A few seconds after you sign, USDC lands in your wallet. The position's status flips to **Claimed**.
+  </Step>
 </Steps>
 
----
-
-## Handling multiple positions
-
-A single wallet can hold multiple positions on the same market (one per `betIndex`). Query all unclaimed positions and process them individually:
-
-```typescript
-import { fetchUserPositions, marketPda, marketPhase } from '@cypher-zk/sdk';
-
-const allPositions = await fetchUserPositions(client, wallet.publicKey);
-const targetPda    = marketPda(marketId)[0];
-
-const unclaimed = allPositions.filter(
-  ({ account }) => account.market.equals(targetPda) && !account.claimed,
-);
-
-const market = await client.markets.fetch(marketId);
-const phase  = marketPhase(market);
-
-for (const { account } of unclaimed) {
-  if (phase === 'claimable') {
-    await client.actions.claimPayout({ market: targetPda });
-  } else if (phase === 'refundable') {
-    await client.actions.claimRefund({ market: targetPda });
-  }
-}
-```
-
----
-
-## React example
-
-Using the `useClaimPayout` and `useClaimRefund` mutation hooks:
-
-```typescript
-import {
-  useClaimPayout,
-  useClaimRefund,
-  useMarket,
-  useUserPositions,
-} from '@cypher-zk/sdk/react';
-import { marketPhase, marketPda } from '@cypher-zk/sdk';
-import { useWallet } from '@solana/wallet-adapter-react';
-
-function ClaimCard({ marketId }: { marketId: bigint }) {
-  const wallet      = useWallet();
-  const { data: market }     = useMarket(marketId);
-  const { data: positions }  = useUserPositions(wallet.publicKey ?? undefined);
-  const claimPayout = useClaimPayout();
-  const claimRefund = useClaimRefund();
-
-  if (!market) return null;
-
-  const phase    = marketPhase(market);
-  const targetPda = marketPda(marketId)[0];
-  const unclaimed = (positions ?? []).filter(
-    ({ account }) => account.market.equals(targetPda) && !account.claimed,
-  );
-
-  if (phase !== 'claimable' && phase !== 'refundable') {
-    return <p>Claims not yet open (phase: {phase}).</p>;
-  }
-  if (unclaimed.length === 0) {
-    return <p>Nothing to claim.</p>;
-  }
-
-  return (
-    <ul>
-      {unclaimed.map(({ account }) => (
-        <li key={account.betIndex.toString()}>
-          <button
-            onClick={() => {
-              const mutation = phase === 'claimable' ? claimPayout : claimRefund;
-              mutation.mutate({
-                payer:    wallet.publicKey!,
-                user:     wallet.publicKey!,
-                marketId,
-                betIndex: account.betIndex,
-              });
-            }}
-          >
-            {phase === 'claimable'
-              ? `Claim payout (bet #${account.betIndex})`
-              : `Claim refund (bet #${account.betIndex})`}
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
-```
-
----
-
-## All market phases at a glance
-
-| Phase | Claim action available | Description |
-|---|---|---|
-| `betting` | — | Market is open for new bets |
-| `awaitingResolve` | — | Betting closed; waiting for resolver |
-| `pendingResolution` | — | Outcome posted; challenge window active |
-| `awaitingFinalize` | `finalizeResolution` (anyone) | Window elapsed; call finalize to open claims |
-| `disputed` | — | Flagged outcome; admin must override |
-| `claimable` | `claimPayout` | Call this to receive your winnings |
-| `refundable` | `claimRefund` | Resolver missed deadline; stake returned |
-| `expired` | — | All deadlines passed; admin recovers remainder |
-| `cancelled` | — | Market cancelled before any bets |
+That's it. There's no manual approval, no off-chain step. The protocol already knows whether you won (Arcium decrypted your bet at settlement) and pays out the right amount automatically.
 
 <Note>
-  The `claimPayout` action triggers an Arcium MPC computation. Expect the
-  `awaiting-callback` stage to take around 10 seconds. If you're on devnet,
-  allow up to 30 seconds and consider passing `timeoutMs: 300_000` if you see
-  frequent timeouts.
+  The amount you receive is calculated from the odds you locked in at bet time, adjusted slightly by the payout ratio at settlement. See [Fees and odds](/how-it-works/fees#payouts-at-settlement).
 </Note>
+
+## You don't need your decryption key to claim
+
+This is the question that comes up the most, so it's worth being explicit:
+
+**Your local-storage secret is only needed to display your own side in the app.** It's not needed to claim. The protocol already knows whether you won - Arcium decrypted your position at settlement and wrote the outcome to the market account. Your claim just asks the program to pay out, and the program reads the outcome directly.
+
+So if you cleared your browser data and the Positions tab is showing your side as "encrypted," you can still click Claim. The payout will go through.
+
+## Claim multiple positions
+
+If you placed several bets on the same market - for example, three YES bets at different times - each one is a separate position. You claim each one independently.
+
+The Positions tab groups your bets by market, so you'll see all three in one place. Click Claim on each. Each is a separate transaction.
+
+## Claim a refund
+
+If a market enters the **refundable** phase, it means the resolver missed their deadline and never posted an outcome. The market never gets settled - instead, bettors can pull their net stake back.
+
+The flow:
+
+1. Open the **Positions** tab.
+2. Find a market in the **Refundable** phase.
+3. Click **Claim refund**.
+4. Sign the transaction.
+
+USDC comes back to your wallet. The amount is your **net stake** (what entered the pool after fees) - not your original gross bet. The fees are not refunded.
+
+<Warning>
+  There's a refund deadline. If you don't claim within the window after the market enters Refundable, the protocol admin can sweep the unclaimed funds. The app shows you the deadline on each refundable position. Claim promptly.
+</Warning>
+
+## What happens if you don't claim
+
+Every claimable market has a **claim deadline** - usually a few days after the market enters Claimable. After that:
+
+- Your position is still recorded on chain, but the claim button stops working in the app.
+- Unclaimed payouts go to the protocol admin's sweep, who uses them for accounting and treasury reconciliation.
+
+In short: claim promptly. The app shows you the deadline; don't ignore it.
+
+## What's next
+
+- [Dispute resolution](/guides/dispute-resolution) - what to do if the result looks wrong.
+- [Market lifecycle](/how-it-works/lifecycle) - the timeline of every market.
+- [FAQ](/troubleshooting/faq) - common questions about claiming.

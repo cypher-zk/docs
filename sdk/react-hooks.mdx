@@ -1,7 +1,7 @@
 ---
-title: "React Hooks Reference for Cypher Prediction Markets SDK"
+title: "React Hooks Reference for Cyphers Prediction Markets SDK"
 sidebarTitle: "React Hooks"
-description: "Complete reference for all React hooks in @cypher-zk/sdk/react — query hooks, mutation hooks, event subscriptions, and query-key factories."
+description: "Complete reference for all React hooks in @cypher-zk/sdk/react - query hooks, mutation hooks, event subscriptions, and query-key factories."
 ---
 
 `@cypher-zk/sdk/react` exports a `CypherProvider` component and fourteen hooks that cover every read and write operation in the protocol. The query hooks are built on TanStack Query v5 and cache results automatically. The mutation hooks wrap the high-level `client.actions.*` methods and invalidate related caches on success so your UI stays in sync without any manual work.
@@ -12,7 +12,7 @@ description: "Complete reference for all React hooks in @cypher-zk/sdk/react —
 
 ## Provider setup
 
-Construct a `CypherClient` once — typically in a top-level component or module — and pass it to `CypherProvider`. Wrap `CypherProvider` inside your TanStack `QueryClientProvider`:
+Construct a `CypherClient` once - typically in a top-level component or module - and pass it to `CypherProvider`. Wrap `CypherProvider` inside your TanStack `QueryClientProvider`:
 
 ```typescript
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -68,21 +68,21 @@ function MarketDebug() {
 
 ## Query hooks
 
-Query hooks fetch on-chain state and cache it via TanStack Query. Each hook accepts an optional second `opts` argument that maps to any standard `UseQueryOptions` field — `staleTime`, `refetchInterval`, `enabled`, etc.
+Query hooks fetch on-chain state and cache it via TanStack Query. Each hook accepts an optional second `opts` argument that maps to any standard `UseQueryOptions` field - `staleTime`, `refetchInterval`, `enabled`, etc.
 
-Default cache stale times are tuned to Cypher's update cadence:
+Default cache stale times are tuned to Cyphers' update cadence:
 
 | Hook | Default `staleTime` |
 |---|---|
-| `useGlobalState()` | 30 s — protocol config changes only on admin operations |
-| `useMarket(id)` | 10 s — updates on bet, resolve, and claim |
+| `useGlobalState()` | 30 s - protocol config changes only on admin operations |
+| `useMarket(id)` | 10 s - updates on bet, resolve, and claim |
 | `useMarkets()` | 10 s |
-| `useUserPositions(user)` | 5 s — updates on every new bet |
+| `useUserPositions(user)` | 5 s - updates on every new bet |
 
 Override per call:
 
 ```typescript
-// Never go stale — invalidate manually when you know something changed
+// Never go stale - invalidate manually when you know something changed
 const { data: config } = useGlobalState({ staleTime: Infinity });
 
 // Poll aggressively during a live event
@@ -93,7 +93,7 @@ const { data: market } = useMarket(id, { refetchInterval: 1_000 });
 
 ### `useGlobalState`
 
-Fetches the protocol `GlobalState` account — fee rates, accepted mint, market counter, and admin key.
+Fetches the protocol `GlobalState` account - fee rates, accepted mint, market counter, and admin key.
 
 ```typescript
 import { useGlobalState } from '@cypher-zk/sdk/react';
@@ -250,7 +250,7 @@ function EventFeed() {
   return (
     <ul>
       {events.map((ev, i) => (
-        <li key={i}>{ev.name} — market {ev.data.market?.toBase58()}</li>
+        <li key={i}>{ev.name} - market {ev.data.market?.toBase58()}</li>
       ))}
     </ul>
   );
@@ -486,7 +486,7 @@ function FinalizeButton({ marketId }) {
 
 ### `useAdminOverrideResolution` <span style={{fontSize:'0.75rem', color:'#6d45fc', fontWeight:600}}>v0.2+</span>
 
-Allows the Cypher admin to override the outcome of a disputed market. Requires the admin wallet.
+Allows the Cyphers admin to override the outcome of a disputed market. Requires the admin wallet.
 
 **Invalidates:** `marketKeys.detail(market)`
 
@@ -508,7 +508,7 @@ function AdminOverridePanel({ marketId }) {
 
 ## Query key factories
 
-Use query key factories when you need manual cache control — for example after sending a raw instruction without going through a mutation hook, or when implementing optimistic updates.
+Use query key factories when you need manual cache control - for example after sending a raw instruction without going through a mutation hook, or when implementing optimistic updates.
 
 Import them from `@cypher-zk/sdk/react`:
 
@@ -566,7 +566,7 @@ function BetButton({ marketId, ...betParams }) {
 ```
 
 <Warning>
-  Do not optimistically update `revealedPool0`–`revealedPool3`. These fields hold MPC-computed encrypted totals that only become correct after the Arcium callback finalizes. Any value you set will be overwritten — or worse, cause a stale-data bug if the callback is delayed.
+  Do not optimistically update `revealedPool0`–`revealedPool3`. These fields hold MPC-computed encrypted totals that only become correct after the Arcium callback finalizes. Any value you set will be overwritten - or worse, cause a stale-data bug if the callback is delayed.
 </Warning>
 
 ### Suspense mode
@@ -584,7 +584,7 @@ function ProtocolStats() {
     queryFn: () => client.globalState.fetch(),
   });
 
-  // data is non-nullable — the Suspense boundary handles the loading state
+  // data is non-nullable - the Suspense boundary handles the loading state
   return <p>Markets created: {data.marketCounter.toString()}</p>;
 }
 ```

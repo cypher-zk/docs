@@ -1,10 +1,10 @@
 ---
 title: "CypherClient SDK Reference: Constructor, Namespaces & Fetch"
 sidebarTitle: "CypherClient"
-description: "Constructor options, all client namespaces, and fetch method examples for CypherClient — the central entry point into the Cypher SDK."
+description: "Constructor options, all client namespaces, and fetch method examples for CypherClient - the central entry point into the Cyphers SDK."
 ---
 
-`CypherClient` is the single object through which all SDK functionality flows. Construct it once with a `Connection` and a `Wallet`, then access every on-chain operation through its typed namespaces. The constructor is **synchronous** — it sets up the Anchor provider and program bindings locally without firing any RPC call.
+`CypherClient` is the single object through which all SDK functionality flows. Construct it once with a `Connection` and a `Wallet`, then access every on-chain operation through its typed namespaces. The constructor is **synchronous** - it sets up the Anchor provider and program bindings locally without firing any RPC call.
 
 <Note>
   You do not need to `await` the constructor. Connections to Solana are made lazily, on the first method call that needs them.
@@ -26,7 +26,7 @@ const client = new CypherClient({
 ### Options
 
 <ParamField path="connection" type="Connection" required>
-  A `@solana/web3.js` `Connection` instance pointing at your target cluster. Pass your own RPC URL for production — public endpoints are rate-limited.
+  A `@solana/web3.js` `Connection` instance pointing at your target cluster. Pass your own RPC URL for production - public endpoints are rate-limited.
 </ParamField>
 
 <ParamField path="wallet" type="Wallet" required>
@@ -104,9 +104,9 @@ Every namespace is pre-bound to the client instance and mirrors the underlying s
 | `client.positions` | Fetch a user's encrypted position for a given market and bet index |
 | `client.lpPositions` | Fetch LP (creator bond / fee) positions |
 | `client.events` | Subscribe to on-chain events via WebSocket or poll by signature |
-| `client.actions` | High-level end-to-end action methods — the recommended path for most use cases |
-| `client.admin` | One-time protocol setup instructions (**Cypher team only**) |
-| `client.compDefs` | Arcium computation definition registration (**Cypher team only**) |
+| `client.actions` | High-level end-to-end action methods - the recommended path for most use cases |
+| `client.admin` | One-time protocol setup instructions (**Cyphers team only**) |
+| `client.compDefs` | Arcium computation definition registration (**Cyphers team only**) |
 | `client.marketIx` | Raw instruction builders for market lifecycle (create, cancel, withdraw) |
 | `client.bets` | Raw instruction builders for placing bets |
 | `client.resolveIx` | Raw instruction builders for market resolution |
@@ -121,9 +121,9 @@ Every namespace is pre-bound to the client instance and mirrors the underlying s
 // Fetch the protocol config (fee rates, accepted mint, market counter)
 const globalState = await client.globalState.fetch();
 
-console.log(globalState.protocolFeeRate);   // bigint — basis points
-console.log(globalState.acceptedMint);      // PublicKey — USDC mint
-console.log(globalState.marketCounter);     // bigint — total markets created
+console.log(globalState.protocolFeeRate);   // bigint - basis points
+console.log(globalState.acceptedMint);      // PublicKey - USDC mint
+console.log(globalState.marketCounter);     // bigint - total markets created
 ```
 
 ### Markets
@@ -204,7 +204,7 @@ The following TypeScript interfaces describe the deserialized on-chain accounts 
   The SPL token mint accepted by the protocol (USDC on all clusters).
 </ResponseField>
 <ResponseField name="admin" type="PublicKey">
-  The Cypher admin authority. Required for override resolution and treasury claims.
+  The Cyphers admin authority. Required for override resolution and treasury claims.
 </ResponseField>
 <ResponseField name="protocolTreasury" type="PublicKey">
   Destination for protocol fee receipts.
@@ -240,7 +240,7 @@ The following TypeScript interfaces describe the deserialized on-chain accounts 
   USDC (in lamports) locked as the creator bond (min `MIN_CREATOR_BOND` = $20).
 </ResponseField>
 <ResponseField name="inlineQuestion" type="string">
-  Non-empty only for legacy v1/v2 accounts (577 or 594 bytes). Always `""` for current v3 accounts — use `fetchMarketQuestion` instead.
+  Non-empty only for legacy v1/v2 accounts (577 or 594 bytes). Always `""` for current v3 accounts - use `fetchMarketQuestion` instead.
 </ResponseField>
 
 ### `EncryptedPositionAccount`

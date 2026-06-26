@@ -1,53 +1,88 @@
 ---
-title: "Introduction to Cypher: Privacy-Preserving Predictions"
-sidebarTitle: "Introduction"
-description: "Learn what Cypher is, how it uses Arcium MPC to keep predictions private on-chain, and what you can build with the @cypher-zk/sdk."
+title: "Introduction"
+description: "What Cyphers is, who it's for, and what makes it different from other prediction markets."
 ---
 
-Cypher is a prediction market protocol on Solana where your chosen outcome stays private until settlement. In conventional prediction markets, every bet is publicly readable on-chain the moment it lands — sophisticated actors can front-run positions, markets can be manipulated by watching the order flow, and user behaviour is trivially profiled. Cypher eliminates that problem: your prediction is encrypted with your own x25519 keypair before it leaves your device, and the ciphertext is what gets written to Solana. Nobody — not the protocol, not validators, not other bettors — can read your chosen side until Arcium's MPC network decrypts and settles the market after it closes.
+Cyphers is a prediction market on Solana. The twist: your bet - which side you picked - stays private until the market settles. Other prediction markets publish every bet to anyone who can read a block explorer. Cyphers doesn't.
 
-## Key features
+This page is for someone who's heard about Cyphers and wants to know what it actually is. If you're ready to bet, jump to the [Quickstart](/quickstart).
+
+## Why hidden bets matter
+
+In a normal prediction market, every bet is a public record:
+
+- A market on "Will Bitcoin hit $200k this year?" shows everyone who bet YES, who bet NO, and how much.
+- Whales watching the order flow can see whichever way a market is leaning and trade against it.
+- Bots can copy whatever the smart money is doing within seconds.
+- Your political bets, sports bets, or anything else become part of your public on-chain profile.
+
+This isn't a hypothetical problem. On every major prediction market today, public bets are routinely scraped, indexed, and used to front-run new positions.
+
+Cyphers fixes this by encrypting the side of every bet before it lands on chain. The amount is still public - the protocol needs it to track funds - but *which side you picked* is hidden until the market closes.
+
+## What stays private, what doesn't
+
+It helps to be precise about what Cyphers does and doesn't hide.
+
+| What | Hidden? |
+|---|---|
+| Your chosen side (YES vs NO, or which option) | **Yes**, until the market settles |
+| Your stake amount | No - visible on chain |
+| Your wallet address | No |
+| That you bet on a specific market | No |
+| The result of the market once it resolves | No - public, like any settlement |
+
+So Cyphers hides **your prediction**, not your participation. If you're betting `$50` on a YesNo market, the network sees a wallet bet `$50`, but not whether it was on YES or NO.
+
+## How a market works, in three steps
+
+Pick any market in the app and the flow is the same:
+
+1. **You bet.** You pick a side, choose an amount, and confirm. Cyphers encrypts your side in your browser before sending it to Solana.
+2. **The market closes.** When the close time passes, betting stops. The market enters a waiting state until a resolver posts the real-world outcome.
+3. **Settlement.** The Arcium network decrypts every bet at once, computes who won and how much, and writes the result back to Solana. After a short challenge window (so anyone can flag a bad resolution), winners can claim their USDC.
+
+For the full timeline with deadlines and edge cases, see [Market lifecycle](/how-it-works/lifecycle).
+
+## What you can do on Cyphers
+
+**Bet.** Pick a market that's open, choose a side, place a stake. See [Place a bet](/guides/place-a-bet).
+
+**Create a market.** Have a question worth resolving? Post a market with a USDC bond and earn a share of every bet placed on it. See [Create a market](/guides/create-a-market).
+
+**Claim a payout.** When a market you bet on resolves and you picked the winning side, you can claim your share of the pool. See [Claim payout](/guides/claim-payout).
+
+**Dispute a result.** If a market's resolver posts an outcome that looks wrong, anyone can flag it during the challenge window. See [Dispute resolution](/guides/dispute-resolution).
+
+## Two market types
+
+Cyphers supports two shapes of markets. That's it - no hidden tiers or modes.
+
+- **YesNo.** A binary question with two possible answers. "Will BTC close above $100k on 1 Jan 2026?"
+- **MultiOutcome.** A question with 2–4 named options. "Which chain has the most TVL on 1 Jan 2026? [Solana | Ethereum | Base]"
+
+For when to use which, see [Market types](/how-it-works/market-types).
+
+## A few things to be aware of
+
+- **USDC, not SOL.** Every bet and payout uses USDC. You'll need USDC in your wallet to bet.
+- **Minimum bet is $1.** Markets accept anything from `$1` upward, in USDC.
+- **A small fee comes out.** Two small fees are deducted from every bet: a protocol fee (up to `1%`) and a market-creator fee (up to `5%`). The breakdown is on [Fees](/how-it-works/fees).
+- **There's a wait at settlement.** When a market closes, the off-chain decryption takes around 10 seconds. The challenge window after that is `24` to `48` hours.
+
+## What's next
 
 <CardGroup cols={2}>
-  <Card title="Encrypted predictions" icon="lock">
-    Your chosen side is encrypted client-side with x25519 + RescueCipher. Only your stake amount is visible on-chain during the betting window.
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Connect your wallet and place a bet in a few minutes.
   </Card>
-  <Card title="Three market types" icon="chart-bar">
-    **YesNo** for binary outcomes, **MultiOutcome** for 2–4 labelled options, and **Accuracy** for fixed-stake numeric predictions at $1, $10, or $100 tiers.
+  <Card title="Privacy model" icon="lock" href="/how-it-works/privacy-model">
+    The high-level idea of how encryption keeps your side hidden.
   </Card>
-  <Card title="React hooks included" icon="react">
-    `@cypher-zk/sdk/react` ships `usePlaceBet`, `useMarkets`, `usePosition`, `useCancelMarket`, and more — drop them into any wallet-adapter app.
+  <Card title="Fees" icon="receipt" href="/how-it-works/fees">
+    What you'll actually pay on each bet.
   </Card>
-  <Card title="Challenge window" icon="flag">
-    After resolution, a 24–48 hour dispute window lets anyone flag a suspicious outcome before payouts open. Undisputed resolutions finalize automatically.
-  </Card>
-  <Card title="USDC on Solana" icon="dollar-sign">
-    All stakes and payouts are denominated in USDC (6 decimals). The minimum bet is $1. The accepted mint is read from on-chain `GlobalState` at runtime — the same SDK works on devnet and mainnet.
-  </Card>
-  <Card title="Permissionless markets" icon="globe">
-    Any wallet can create a market by posting a USDC bond (minimum $20). Markets support custom close times, categories, and independent resolver addresses.
+  <Card title="FAQ" icon="circle-question" href="/troubleshooting/faq">
+    Common questions answered fast.
   </Card>
 </CardGroup>
-
-## Architecture overview
-
-Cypher is built across three coupled layers. As an app developer, you only ever work with the bottom one.
-
-**MPC circuit layer (Arcium)** — Eight fixed-shape MPC circuits handle encrypted bet evaluation and payout computation. When a market resolves, the on-chain program queues a computation; Arcium's MPC cluster decrypts all positions, tallies sides, and writes the result back to Solana via a program callback. This computation takes roughly 10 seconds on devnet. You never interact with this layer directly.
-
-**On-chain program layer (Anchor)** — The Cypher Anchor program at `cyphPe923pnPGVXJL3a3P7t2W9mJsagBcg1oeauoh2B` manages market state, vault accounting, position PDAs, and the challenge window protocol. When a transaction is rejected, the error code surfaces from this layer as a typed `CypherError`. You don't call instructions directly — the SDK does it for you.
-
-**Client SDK layer (`@cypher-zk/sdk`)** — This is your surface. The SDK wraps the entire encrypt → submit → await MPC callback → refetch choreography behind named action methods and React hooks. It handles PDA derivation, fee computation, event parsing, and phase gating. Import it from `@cypher-zk/sdk`; for React hooks use `@cypher-zk/sdk/react`.
-
-<Note>
-  Never import `@cypher-zk/sdk/node` in browser code. That subpath is reserved for future Node-only admin utilities and will break any browser bundler.
-</Note>
-
-## What you can build
-
-- **Prediction market frontends** — Display live markets, accept encrypted bets, show position status, and handle payout claims with React hooks.
-- **Market creator dashboards** — Let users post markets with custom questions, categories, lock times, and resolver addresses.
-- **Resolver bots** — Node.js scripts that watch market deadlines and post resolutions via `client.actions.resolveMarket`.
-- **Event indexers** — Subscribe to on-chain events (`BetPlacedEvent`, `MarketResolvedEvent`, `PayoutClaimedEvent`, etc.) for analytics or notifications.
-
-Ready to write code? The [Quickstart](/quickstart) gets you to a placed bet in under 5 minutes.

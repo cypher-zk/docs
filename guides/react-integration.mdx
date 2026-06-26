@@ -1,10 +1,10 @@
 ---
-title: "React Integration Guide for Cypher Prediction Markets SDK"
+title: "React Integration Guide for Cyphers Prediction Markets SDK"
 sidebarTitle: "React Integration"
 description: "Set up CypherProvider, list markets, place bets, and stream real-time events using @cypher-zk/sdk/react hooks in Vite or Next.js App Router apps."
 ---
 
-The `@cypher-zk/sdk/react` subpath exports a `CypherProvider` context and a set of TanStack Query-powered hooks that handle all data fetching, cache invalidation, and mutation state for you. This guide shows you how to wire everything together — from provider setup through real-time event subscriptions — in both a Vite SPA and a Next.js App Router project.
+The `@cypher-zk/sdk/react` subpath exports a `CypherProvider` context and a set of TanStack Query-powered hooks that handle all data fetching, cache invalidation, and mutation state for you. This guide shows you how to wire everything together - from provider setup through real-time event subscriptions - in both a Vite SPA and a Next.js App Router project.
 
 ## Installation
 
@@ -20,7 +20,7 @@ npm install @solana/wallet-adapter-react @solana/wallet-adapter-react-ui @solana
 
 <Warning>
   Use `@solana/web3.js` **v1** (e.g. `^1.95.4`). The SDK is not compatible
-  with v2. Do not import `@cypher-zk/sdk/node` in any browser code — it will
+  with v2. Do not import `@cypher-zk/sdk/node` in any browser code - it will
   break your bundler.
 </Warning>
 
@@ -58,7 +58,7 @@ npm install @solana/wallet-adapter-react @solana/wallet-adapter-react-ui @solana
         if (!wallet.publicKey) return null;
         return new CypherClient({
           connection: new Connection(RPC, 'confirmed'),
-          wallet: wallet as never, // cast is safe — adapter shape matches SDK Wallet interface
+          wallet: wallet as never, // cast is safe - adapter shape matches SDK Wallet interface
           cluster: 'devnet',
         });
       // Re-create only when the connected public key changes, not on every render
@@ -122,12 +122,12 @@ npm install @solana/wallet-adapter-react @solana/wallet-adapter-react-ui @solana
   </Tab>
 
   <Tab title="Next.js App Router">
-    All Cypher components must be **client components** — the SDK uses `@solana/web3.js` which is not SSR-safe. Add `'use client'` to every file that imports from `@cypher-zk/sdk` or `@cypher-zk/sdk/react`.
+    All Cyphers components must be **client components** - the SDK uses `@solana/web3.js` which is not SSR-safe. Add `'use client'` to every file that imports from `@cypher-zk/sdk` or `@cypher-zk/sdk/react`.
 
     <Note>
-      Mark every component that touches Cypher SDK hooks with the `'use client'`
+      Mark every component that touches Cyphers SDK hooks with the `'use client'`
       directive. The `CypherProvider` wrapper itself must live in a client
-      component — it cannot be placed in a Server Component or `app/layout.tsx`
+      component - it cannot be placed in a Server Component or `app/layout.tsx`
       directly.
     </Note>
 
@@ -206,7 +206,7 @@ npm install @solana/wallet-adapter-react @solana/wallet-adapter-react-ui @solana
     }
     ```
 
-    **`next.config.js`** — add webpack fallbacks for Node built-ins:
+    **`next.config.js`** - add webpack fallbacks for Node built-ins:
 
     ```javascript
     /** @type {import('next').NextConfig} */
@@ -229,7 +229,7 @@ npm install @solana/wallet-adapter-react @solana/wallet-adapter-react-ui @solana
 
 ## Listing markets with `useMarkets`
 
-`useMarkets` returns a paginated list of market accounts, optionally filtered by state or creator. Batch-fetch question text with `fetchMarketQuestions` — questions live in a separate PDA, not on the market account itself.
+`useMarkets` returns a paginated list of market accounts, optionally filtered by state or creator. Batch-fetch question text with `fetchMarketQuestions` - questions live in a separate PDA, not on the market account itself.
 
 ```typescript
 'use client';
@@ -302,7 +302,7 @@ export function BetCard({ marketId, rawQuestion }: { marketId: bigint; rawQuesti
   const { data: market } = useMarket(marketId);
   const placeBet = usePlaceBet({
     onSuccess: ({ userKeypair, betIndex, signature }) => {
-      // Persist the secret key — no recovery path if lost
+      // Persist the secret key - no recovery path if lost
       localStorage.setItem(
         `cypher-key-${marketId}-${betIndex}`,
         JSON.stringify(Array.from(userKeypair.privateKey)),
@@ -381,10 +381,10 @@ export function ActivityFeed() {
         <li key={i}>
           <strong>{event.name}</strong>{' '}
           {event.name === 'BetPlacedEvent' && (
-            <span>— market {event.data.market.toBase58().slice(0, 8)}…</span>
+            <span>- market {event.data.market.toBase58().slice(0, 8)}…</span>
           )}
           {event.name === 'MarketResolvedEvent' && (
-            <span>— outcome {event.data.outcome}</span>
+            <span>- outcome {event.data.outcome}</span>
           )}
         </li>
       ))}
@@ -431,7 +431,7 @@ The SDK's query hooks use TanStack Query with sensible defaults. Override them p
 // Poll a market every second during the challenge window
 const { data: market } = useMarket(marketId, { refetchInterval: 1_000 });
 
-// Never stale — you'll invalidate manually after your own transactions
+// Never stale - you'll invalidate manually after your own transactions
 const { data: state } = useGlobalState({ staleTime: Infinity });
 ```
 

@@ -1,303 +1,127 @@
 ---
-title: "Common Cypher SDK Errors: Diagnosis and Fixes Guide"
-sidebarTitle: "Common Errors"
-description: "Diagnose and fix the most frequent Cypher SDK errors — from lost keypairs and MPC timeouts to web3.js version mismatches and missing Buffer polyfills."
+title: "Common issues"
+description: "What to do when something doesn't work - from wallet errors to missing positions."
 ---
 
-Most errors you'll encounter with the Cypher SDK fall into a handful of categories: betting and keypair issues, wrong market state, bundler configuration problems, and insufficient funds. This page covers each one with a root cause and a concrete fix. For on-chain errors returned from the program, use `parseCypherError` to get a human-readable message.
+If something on Cyphers isn't behaving like you expect, look here first. Each issue is grouped by where it shows up: wallet, betting, claiming, and visibility.
 
-## Parsing on-chain errors
+If your problem isn't here, check the [FAQ](/troubleshooting/faq).
 
-Before digging into specific errors, wire up `parseCypherError` in your error handling. It handles every error shape the SDK produces — `AnchorError`, `SendTransactionError` with log output, and plain `Error` messages:
+## Wallet won't connect
 
-```typescript
-import { parseCypherError } from "@cypher-zk/sdk";
+You click **Connect Wallet** and nothing happens, or the wallet says it's connecting forever.
 
-try {
-  await client.actions.claimPayout({ market });
-} catch (e) {
-  const parsed = parseCypherError(e);
-  if (parsed) {
-    console.error(`[${parsed.code}] ${parsed.name}: ${parsed.msg}`);
-    // e.g. "[6000] MarketNotActive: Market closed/resolved/cancelled"
-  } else {
-    throw e; // not a Cypher program error — rethrow
-  }
-}
-```
+- **Make sure your wallet is unlocked.** Open the extension; if it's asking for a password, enter it first.
+- **Check the network.** Cyphers runs on Solana devnet during beta. Your wallet needs to be set to Devnet.
+- **Try a different wallet.** Phantom, Solflare, and Backpack all work. Some wallets sometimes get into a weird state - switching extensions clears it.
+- **Reload the page.** Browser extensions occasionally lose their connection on slow networks. A reload usually fixes it.
 
----
+If it still won't connect, check the browser console for an error message and look it up in the [FAQ](/troubleshooting/faq#about-betting).
 
-## Betting errors
+## Transaction rejected
 
-<AccordionGroup>
+You click Bet (or Claim, or Create Market), the wallet pops up, you sign - and the transaction fails with an error.
 
-<Accordion title="Error: Cannot read properties of undefined (reading 'privateKey')">
+Common causes:
 
-**Cause:** You tried to access `userKeypair` (or one of its fields) without saving it first. `placeBet` returns a `userKeypair` in its result — this is the x25519 encryption keypair used to encrypt your bet. The SDK does not persist it anywhere.
+- **Insufficient SOL for transaction fees.** Solana charges a small fee in SOL for every action. If your wallet is empty of SOL, transactions fail. Top up with `0.05 SOL` (about `$0.50` worth) - that's enough for hundreds of transactions.
+- **Insufficient USDC.** If you're betting `$10` but your wallet only has `$5`, the transaction fails. Check your balance before betting.
+- **Market is no longer accepting bets.** The market closed between when you opened the bet panel and when you clicked Bet. Refresh the page to see the current status.
+- **Stale market data.** The app may have an outdated view of the market. Refresh and try again.
 
-**Fix:** Destructure and save `userKeypair` immediately when `placeBet` resolves:
+If the wallet shows a "Transaction simulation failed" error with a specific code, the [SDK error codes](/troubleshooting/common-errors#sdk-error-codes) section at the bottom of this page maps it back to a human-readable cause.
 
-```typescript
-const { userKeypair, signature } = await client.actions.placeBet({
-  market,
-  betAmountUsdc: 5_000_000n,
-  side: "YES",
-});
+## My bet is "stuck" - it's been minutes
 
-// ✅ Save this immediately — in your database, localStorage, or secure storage
-localStorage.setItem(`keypair:${market.marketId}`, JSON.stringify(Array.from(userKeypair.secretKey)));
-```
+A bet involves two parts: the Solana transaction (about `1 second`) and the off-chain settlement (about `10 seconds`).
 
-If you've already lost the keypair, it cannot be recovered. You will be unable to decrypt your encrypted position data for that bet.
+If you're seeing the bet sit in "Awaiting MPC" for more than a couple of minutes:
 
-</Accordion>
+- **Wait a bit longer.** Devnet can be slow. Up to `5 minutes` is unusual but possible.
+- **Don't double-bet.** Refreshing the page or hitting the button again doesn't help. The bet is already submitted on chain; the app is just waiting for the off-chain confirmation.
+- **Check your Positions tab.** Sometimes the bet completes but the loader doesn't update. If the position is showing in Positions, the bet went through.
 
-<Accordion title="Error: placeBet awaiting callback timeout">
+If the bet really did get stuck and never landed in your Positions, it's a network issue on the off-chain network. Try placing a fresh bet on the same market - it'll work normally.
 
-**Cause:** This is expected behavior, not a bug. Arcium MPC settlement involves a multi-party computation across the Arcium cluster, which typically takes 10–30 seconds on devnet. If `timeoutMs` is hit (default: 120 seconds), the callback never arrives.
+## Position not showing in Positions tab
 
-**Fix:** Show a progress indicator using the `onProgress` callback, and increase `timeoutMs` if you're seeing frequent timeouts on devnet:
+You placed a bet, the transaction confirmed, but the Positions tab is empty or missing the bet.
 
-```typescript
-const result = await client.actions.placeBet({
-  market,
-  betAmountUsdc: 5_000_000n,
-  side: "YES",
-  timeoutMs: 300_000, // 5 minutes — generous for devnet
-  onProgress: (event) => {
-    if (event.stage === "awaiting-callback") {
-      showToast("Arcium MPC is computing your bet… this takes ~10s");
-    }
-    if (event.stage === "done") {
-      hideToast();
-    }
-  },
-});
-```
+- **Refresh the page.** The Positions tab caches data; a refresh usually shows the new bet.
+- **Make sure you're on the right wallet.** The Positions tab shows positions for the *currently connected* wallet. If you switched wallets, you'll see a different list.
+- **Check the network.** If your wallet is on Mainnet but Cyphers is on Devnet (or vice versa), nothing will show.
+- **Try a private RPC.** The default public Solana RPC is sometimes rate-limited. If you control the app's RPC settings, switching to Helius/QuickNode/Triton makes everything faster.
 
-Typical end-to-end times: 5–8s on localnet, 15–30s on devnet.
+If you're certain you bet but the position isn't showing, file an issue with your wallet address and the transaction signature - see [Where to report bugs](#where-to-report-bugs).
 
-</Accordion>
+## My position shows "Encrypted" for the side
 
-</AccordionGroup>
+You're seeing your stake and odds, but the side displays as "Encrypted" instead of "YES" or "NO."
 
----
+This means your browser doesn't have the decryption key for that position. It happens when:
 
-## State errors
+- **You cleared your browser data.** Clearing local storage removes the secret keys.
+- **You're using a different browser or device** than the one you placed the bet from.
+- **You're in private/incognito mode** - keys placed there go away when the window closes.
 
-<AccordionGroup>
+**Your money is safe.** The Claim button still works. The protocol pays out based on the side the off-chain network decrypted at settlement, not based on what your local key says.
 
-<Accordion title="Error: claimPayout failed with constraint error">
+See the [FAQ](/troubleshooting/faq#i-cleared-my-browser-data-can-i-still-claim) for the full explanation of why this is fine.
 
-**Cause:** You called `claimPayout` on a market that isn't in the `claimable` phase. In Cypher v0.2+, resolved markets go through a challenge window before claims open. The market must be finalized before `claimPayout` will succeed.
+## Can't claim - the button is greyed out
 
-**Fix:** Check `marketPhase(market)` before calling claim actions, and show the appropriate UI for each phase:
+The Claim button is only enabled when the market is in the **Claimable** phase. If it's grey:
 
-```typescript
-import { marketPhase } from "@cypher-zk/sdk";
+- **Check the market's status badge.** If it says **Pending resolution**, the challenge window hasn't closed yet. Wait it out.
+- **If it says Disputed**, someone flagged the result. Wait for the admin to resolve the dispute.
+- **If it says Refundable**, you can claim a refund (not a payout) - there should be a separate Refund button.
+- **If it says Claimed**, you already claimed.
 
-const phase = marketPhase(market);
+The phase the market is in is shown on the market's page and on the position card. If you're unsure what each phase means, see [Market lifecycle](/how-it-works/lifecycle).
 
-switch (phase) {
-  case "claimable":
-    // ✅ Safe to call claimPayout
-    await client.actions.claimPayout({ market });
-    break;
-  case "pendingResolution":
-    // Show "Challenge window open" — anyone can flag
-    showLabel("Resolution pending — challenge window open");
-    break;
-  case "awaitingFinalize":
-    // Show "Finalize" button — anyone can call this
-    showButton("Finalize Resolution", () =>
-      client.actions.finalizeResolution({ market })
-    );
-    break;
-  case "disputed":
-    showLabel("Market disputed — awaiting admin review");
-    break;
-}
-```
+## SDK error codes
 
-</Accordion>
+If you're using the SDK directly, on-chain errors come back as numeric codes. The most common ones:
 
-<Accordion title="Error: market.question is undefined">
+<details>
+<summary>Error code reference (6000–6044)</summary>
 
-**Cause:** In Cypher v3 market accounts, the question string is stored in a separate `MarketQuestion` PDA, not inline on the `MarketAccount`. Reading `market.question` directly returns `undefined` for current markets.
-
-**Fix:** Use `fetchMarketQuestions` to batch-fetch question data, then look up the question from the returned map:
-
-```typescript
-import { fetchMarketQuestions } from "@cypher-zk/sdk";
-
-const markets = await client.markets.all();
-const questionMap = await fetchMarketQuestions(client, markets.map(m => m.publicKey));
-
-for (const { publicKey, account } of markets) {
-  const rawQuestion =
-    questionMap.get(publicKey.toBase58()) ||
-    account.inlineQuestion ||              // populated for v1/v2 legacy accounts
-    `Market #${account.marketId}`;         // fallback
-
-  console.log(rawQuestion);
-}
-```
-
-</Accordion>
-
-</AccordionGroup>
-
----
-
-## Setup errors
-
-<AccordionGroup>
-
-<Accordion title="Error: @solana/web3.js v2 not compatible">
-
-**Cause:** The SDK requires `@solana/web3.js` v1. Your project has v2 installed, which has a completely different API surface and is not backwards-compatible.
-
-**Fix:** Downgrade to the v1 range:
-
-```bash
-npm install @solana/web3.js@^1.95.4
-```
-
-If you're using `package.json` workspaces or a monorepo, make sure all packages resolve to the same v1 instance. Check your lock file for duplicate entries.
-
-</Accordion>
-
-<Accordion title="ReferenceError: Buffer is not defined">
-
-**Cause:** Your browser bundler doesn't polyfill the Node.js `Buffer` global, which the SDK uses internally.
-
-**Fix:** Add the appropriate polyfill for your bundler.
-
-<CodeGroup>
-
-```typescript Vite (vite.config.ts)
-import { defineConfig } from "vite";
-import { nodePolyfills } from "vite-plugin-node-polyfills";
-
-export default defineConfig({
-  plugins: [nodePolyfills()],
-});
-```
-
-```javascript Next.js (next.config.js)
-module.exports = {
-  webpack: (config) => {
-    config.resolve.fallback = {
-      buffer: require.resolve("buffer/"),
-      crypto: false,
-      fs: false,
-      stream: false,
-    };
-    return config;
-  },
-};
-```
-
-</CodeGroup>
-
-For Next.js, you can also add a per-file polyfill at the top of the offending client component:
-
-```typescript
-"use client";
-import { Buffer } from "buffer";
-if (typeof window !== "undefined") (window as never).Buffer ??= Buffer;
-```
-
-</Accordion>
-
-<Accordion title="Error: Cannot use import statement in module / Module 'node:fs' has been externalized">
-
-**Cause:** You're importing from `@cypher-zk/sdk/node` in browser-bound code. The `/node` subpath depends on `node:fs` and other Node-only APIs. It's reserved for future Cypher team admin tooling — app developers never need it.
-
-**Fix:** Remove the `@cypher-zk/sdk/node` import. Everything you need as an app developer — `CypherClient`, all action helpers, encryption utilities, `keypairToWallet`, `readonlyWallet` — is available from the core `@cypher-zk/sdk` subpath:
-
-```typescript
-// ❌ Will break in the browser
-import { something } from "@cypher-zk/sdk/node";
-
-// ✅ Use the core subpath instead
-import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
-```
-
-</Accordion>
-
-</AccordionGroup>
-
----
-
-## Funds errors
-
-<AccordionGroup>
-
-<Accordion title="Error: insufficient funds for fee">
-
-**Cause:** Your wallet doesn't have enough SOL to pay Solana transaction fees. Fees are small (typically 0.000005 SOL per transaction) but your wallet balance is at or near zero.
-
-**Fix:** Add SOL to your wallet. On devnet, use the faucet:
-
-```bash
-solana airdrop 1 <YOUR_WALLET_ADDRESS> --url devnet
-```
-
-On mainnet, transfer SOL from an exchange or another wallet.
-
-</Accordion>
-
-<Accordion title="Error: insufficient USDC">
-
-**Cause:** Your wallet's USDC token account doesn't have enough balance for the bet amount. Remember that USDC uses 6 decimal places — 1 USDC is `1_000_000` in raw token units.
-
-**Fix:** Check your USDC balance and make sure you're passing the correct raw amount:
-
-```typescript
-// ✅ Correct: 5 USDC = 5_000_000 raw units
-const betAmountUsdc = 5_000_000n;
-
-// ❌ Wrong: this is 5 micro-USDC, not 5 USDC
-const betAmountUsdc = 5n;
-```
-
-To check your balance:
-
-```bash
-spl-token balance <ACCEPTED_MINT> --owner <YOUR_WALLET>
-```
-
-On devnet, mint test USDC:
-
-```bash
-spl-token mint <ACCEPTED_MINT> 100 --url devnet
-```
-
-</Accordion>
-
-</AccordionGroup>
-
----
-
-## On-chain error code reference
-
-The program emits structured error codes in the range 6000–6044. Use `parseCypherError(err)` to extract the code and a human-readable message:
-
-| Code | Name | What to do |
+| Code | Name | What it means |
 |---|---|---|
-| 6000 | `MarketNotActive` | Refetch the market and re-render with `marketPhase` |
-| 6003 | `AlreadyResolved` | Market resolved during a race — refetch |
-| 6005 | `UnauthorizedResolver` | Only the pinned resolver can resolve this market |
-| 6007 | `AlreadyClaimed` | Position already claimed — refetch |
-| 6009 | `BetTooSmall` | Amount is below `market.minBet` — validate before submitting |
-| 6023 | `ResolutionDeadlinePassed` | Resolver missed the window — offer `claimRefund` instead |
-| 6033 | `WrongMint` | Read mint from `GlobalState.acceptedMint`, don't hardcode it |
-| 6037 | `BondTooSmall` | Pass `bondAmount >= 10_000_000n` ($10 USDC) when creating a market |
-| 6039 | `ChallengePeriodNotElapsed` | `finalizeResolution` called too early — wait for the challenge window |
-| 6044 | `UnauthorizedUser` | Wallet doesn't match the position owner |
+| 6000 | `MarketNotActive` | Tried to bet on a closed/resolved market. Refetch the market and check `marketPhase`. |
+| 6003 | `AlreadyResolved` | The market was resolved between your action and the transaction landing. |
+| 6005 | `UnauthorizedResolver` | Only the resolver wallet can call `resolveMarket`. |
+| 6007 | `AlreadyClaimed` | This position was already claimed. |
+| 6009 | `BetTooSmall` | Amount is below the market's `minBet`. |
+| 6023 | `ResolutionDeadlinePassed` | Resolver missed their deadline. Offer Refund instead. |
+| 6026 | `ClaimPeriodExpired` | Past the claim deadline. The position is forfeited. |
+| 6027 | `RefundPeriodExpired` | Past the refund deadline. The position is forfeited. |
+| 6029 | `ComputationVerificationFailed` | Off-chain network couldn't verify. Not recoverable; report the tx sig. |
+| 6033 | `WrongMint` | The USDC mint on the position is wrong. Read mint from `globalState.acceptedMint`. |
+| 6036 | `InvalidChallengePeriod` | Challenge period outside the 24–48h range. |
+| 6037 | `BondTooSmall` | Bond is below the `$20` minimum. |
+| 6038 | `NotPendingResolution` | Called flag/finalize/override on a market in the wrong phase. |
+| 6039 | `ChallengePeriodNotElapsed` | Called `finalizeResolution` too early. |
+| 6040 | `ChallengePeriodElapsed` | Called `flagResolution` after the window closed. |
+| 6041 | `MarketDisputed` | Called `finalizeResolution` on a disputed market - needs admin override first. |
+| 6042 | `MarketNotDisputed` | Called admin override on a non-disputed market. |
+| 6044 | `UnauthorizedUser` | Wallet doesn't match the position owner. |
 
-<Tip>
-  If you can't diagnose an error, capture: (1) the transaction signature from the `submitting` progress stage, (2) the computation offset from the progress event, (3) `client.cluster` and `client.connection.rpcEndpoint`, and (4) the SDK version from `node_modules/@cypher-zk/sdk/package.json`. File an issue at [github.com/cypher-zk/cypher-sdk/issues](https://github.com/cypher-zk/cypher-sdk/issues).
-</Tip>
+</details>
+
+## Where to report bugs
+
+For app or SDK bugs, open an issue at [github.com/cypher-zk](https://github.com/cypher-zk). Include:
+
+- Your wallet address (just the public key - never the secret).
+- The transaction signature, if there is one.
+- The market id, if it's relevant.
+- A short description of what you did and what happened.
+
+For **security issues**, email the team directly rather than filing a public issue.
+
+## What's next
+
+- [FAQ](/troubleshooting/faq) - quick answers to the questions people ask most.
+- [Market lifecycle](/how-it-works/lifecycle) - understand which phase your market is in.
+- [How privacy works](/how-it-works/privacy-model) - for the encryption questions.

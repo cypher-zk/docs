@@ -1,111 +1,86 @@
 ---
-title: "How Cypher Keeps Your Predictions Private on Solana"
-sidebarTitle: "Privacy Model"
-description: "Cypher encrypts your prediction choice client-side using x25519 and RescueCipher. Only your stake is visible on-chain until Arcium MPC settles the market."
+title: "How privacy works"
+description: "What's hidden, what's not, and the simple idea behind Cyphers' encryption."
 ---
 
-Most prediction markets expose every bet the moment it lands on-chain — anyone watching can see exactly which side you chose, how much you staked, and use that information to front-run, copy, or harass you. Cypher eliminates that problem by encrypting your chosen side **before** the transaction ever leaves your browser. The Solana program only sees ciphertext; the amount you stake is the only piece of information that is public. Your prediction stays secret until the market closes, and even then no single party ever reads your individual choice — a distributed Arcium MPC network computes the winner mask inside an encrypted circuit.
+Cyphers hides your chosen side on every bet. This page explains how, in plain language, without going into the math. The short version: your browser scrambles your side with a key only you and the off-chain network share, and the scrambled bytes - not your real side - go to Solana.
 
-## The problem with transparent prediction markets
+## What's hidden, what's not
 
-On a standard on-chain prediction market, every `placeBet` transaction contains your wallet address, your chosen outcome, and your stake amount — all in plaintext. Block explorers, indexers, and other traders can read these values in real time. A large bet on one side can move the odds before the information is priced in, and your historical betting pattern becomes permanently public.
+The bet you place ends up on Solana as an account called a **position**. Here's what's on it.
 
-## How Cypher solves it
+| On your position | Visible to others? |
+|---|---|
+| Your wallet address | Yes |
+| Your stake amount | Yes |
+| The odds you locked in | Yes |
+| Your chosen side (YES, NO, or which option) | **No - encrypted** |
+| The result, once the market settles | Yes |
 
-Cypher encrypts your prediction choice using **x25519 key exchange** and **RescueCipher** entirely on the client, inside your app, before the transaction is signed. The on-chain program receives only:
+The trade-off is deliberate. The stake amount has to be public so Solana can track the vault. Your side doesn't, so Cyphers hides it.
 
-- Your **stake amount** (required for vault accounting — this is public)
-- An **encrypted payload** of up to 256 bytes containing your prediction (ciphertext)
-- Your **x25519 public key** and a **nonce** (needed by the MPC network to decrypt later)
+## The simple idea
 
-The decryption key is never on-chain and is never held by a single party. It is distributed across the **Arcium MPC (Multi-Party Computation) cluster**, which only operates collectively at settlement time.
+Every bet you place uses a small piece of cryptography that works like this:
 
-## Step-by-step: from bet to payout
+1. **Your browser makes a one-time key.** It's just 32 random bytes. You'll never see it; the app generates and stores it for you.
+2. **It mixes that key with a key the off-chain network published.** The result is a shared secret - a number both sides can compute independently. Nobody watching Solana ever sees it.
+3. **The shared secret scrambles your side.** Your YES or NO becomes 32 bytes of noise.
+4. **The noise goes to Solana.** Your wallet, stake, and the noise are all visible. The original YES or NO is not.
 
-<Steps>
-  <Step title="Generate a one-time keypair">
-    The SDK calls `createUserKeypair()` to generate a fresh x25519 keypair for this bet. The private key lives only in your application's memory (and must be persisted — see below).
+The off-chain network has its own half of the key. When the market closes, it independently computes the same shared secret and unscrambles every bet at once. Then it writes the result to Solana so winners can claim.
 
-    ```ts
-    const userKeypair = createUserKeypair();
-    // { publicKey: Uint8Array(32), privateKey: Uint8Array(32) }
-    ```
-  </Step>
+<Note>
+  This is the same kind of cryptography that protects WireGuard, Signal, and HTTPS. It's standard, well-studied, and battle-tested.
+</Note>
 
-  <Step title="Derive shared secret and encrypt your prediction">
-    Your private key is combined with the Arcium MXE public key via x25519 Diffie-Hellman to derive a shared secret. RescueCipher then encrypts your prediction (side or value) into a 32-byte ciphertext.
+## What happens when you click "Bet"
 
-    ```ts
-    const cipher = createCipher(userKeypair.privateKey, mxePublicKey);
-    const nonce  = freshNonce();
-    const { encryptedAmount, encryptedSide } = encryptBetInput(
-      { amount: betAmountUsdc, side },
-      cipher,
-      nonce,
-    );
-    ```
+The actual flow, end to end:
 
-    At this point your chosen side exists only in ciphertext — your own app cannot reverse it without the shared secret.
-  </Step>
+1. You click **Bet** in the app.
+2. Your browser generates a fresh keypair and computes the shared secret.
+3. It uses the shared secret to scramble your side into 32 bytes.
+4. Your wallet signs a transaction that sends the scrambled bytes, your stake, and your public key (the harmless half of your keypair) to Solana.
+5. The transaction confirms in about a second.
+6. The Arcium off-chain network processes your bet in about ten more seconds (it updates the public odds on the market, but still can't see your side).
+7. Your position appears in your Positions tab.
 
-  <Step title="Submit encrypted position to Solana">
-    The `placeBetAction` submits the encrypted payload to the Solana program. The program:
+Your secret stays in your browser the whole time. Cyphers never sees it. Validators never see it. Other bettors never see it.
 
-    - Transfers USDC from your wallet to the pool vault
-    - Creates a `Position` account storing the ciphertext, your x25519 public key, and nonce
-    - Queues a computation on the Arcium MXE network
+## Where the secret lives
 
-    Your chosen side is never written in plaintext — only the ciphertext and the public accounting field (`stake`) are stored.
-  </Step>
+The secret - your half of the keypair - is stored in your browser's local storage. The app uses it for two things:
 
-  <Step title="Arcium MPC evaluates encrypted bets">
-    After the market lock timestamp passes and a valid resolution is posted, the backend queues a settlement computation. The Arcium MPC cluster:
-
-    - Reads all encrypted positions from the pool
-    - Collectively holds the decryption key (distributed across multiple independent nodes — no single node can decrypt alone)
-    - Runs the settlement circuit entirely inside an encrypted context
-    - Computes a **winner mask** — a per-position boolean array indicating win or loss
-
-    This process typically takes around **10 seconds** on devnet end-to-end.
-  </Step>
-
-  <Step title="Winner mask written on-chain, payouts open">
-    The Arcium callback writes `position.payout` for each position. Winners see a non-zero payout; losers see zero. You can now call `claimPayout` to withdraw your winnings. At no point did any single party observe your individual prediction in plaintext.
-  </Step>
-</Steps>
-
-## What is visible on-chain vs. what stays hidden
-
-| Field | Visibility | Notes |
-|---|---|---|
-| Your wallet address (`user`) | **Public** | Standard Solana account |
-| Stake amount (`stake`) | **Public** | Required for on-chain vault accounting |
-| Encrypted prediction (`encryptedPayload`) | **Hidden** — ciphertext only | RescueCipher output |
-| Chosen side / outcome index | **Hidden** | Never written in plaintext |
-| Predicted numeric value (Accuracy) | **Hidden** | Never written in plaintext |
-| x25519 public key + nonce | **Public** | Required for MPC decryption — reveals nothing about your prediction |
-| Whether you won or lost | **Public after settlement** | `position.payout > 0` is visible once MPC writes results |
-
-The core guarantee: **your chosen side stays secret**. The stake amount is intentionally public — it is required for the Solana program to manage the pool vault correctly.
-
-## Why you must save `userKeypair.privateKey`
-
-The private key returned by `placeBetAction` is generated fresh for every bet. Cypher does **not** store it anywhere — not on-chain, not on any server.
-
-```ts
-const result = await client.actions.placeBet(inputs);
-
-// ✅ Persist this immediately — it cannot be recovered
-const keypairToStore = result.userKeypair;
-// { publicKey: Uint8Array(32), privateKey: Uint8Array(32) }
-```
-
-The private key is needed to prove ownership of your position when claiming a payout. If you lose it, you lose access to your winnings — there is no recovery path.
+- **Showing you your own bet.** When you open Positions, the app reads the secret out of local storage and uses it to decrypt the side it stored on chain. That's why you can see your own YES or NO.
+- **That's it.** Nothing else needs it.
 
 <Warning>
-  **There is no key recovery.** The `userKeypair.privateKey` from `placeBetAction` must be stored by your application immediately after the bet is placed. If you lose the private key for a winning position, the payout cannot be claimed — not by you, not by Cypher, not by anyone. Treat it like a wallet seed phrase for that individual bet.
+  If you clear your browser data or move to a different device without copying the secret over, you lose the ability to see what side you bet on. Your bet is still safe, your payout still works, but the Positions tab will display the side as "encrypted." See the [FAQ](/troubleshooting/faq) for what to do.
 </Warning>
 
-<Tip>
-  Store `userKeypair.privateKey` alongside the `marketId` and the `position` public key in your app's local state or secure storage. When the user returns to claim their payout, you'll need these values to construct the claim instruction.
-</Tip>
+## Why losing your secret doesn't lose your money
+
+This is the most common confusion, and it's worth stating clearly:
+
+- **You don't need the secret to claim a payout.** The off-chain network can already see what side you bet on (it has its own half of the keypair) and writes the result to the market itself. Your claim just asks the program to pay out - the program already knows whether you won.
+- **You only need the secret to read your own side in the UI.** Without it, the app shows "encrypted" instead of "YES" or "NO," but everything else works.
+
+So a wiped browser is a UX problem, not a money problem.
+
+## What Cyphers does not protect
+
+It's worth being honest about the limits.
+
+- **Your wallet is public.** Anyone scanning Solana can list all your positions.
+- **Your stake is public.** The amount you bet shows up in plain text on chain.
+- **That you bet on a particular market is public.** Cyphers hides *what you bet on*, not *that you bet at all*.
+- **Timing is public.** Block timestamps show roughly when you placed each bet.
+
+If your threat model needs to hide the fact that you bet entirely - for example, you don't want anyone to know you're participating - Cyphers alone isn't enough.
+
+## What's next
+
+- [Market lifecycle](/how-it-works/lifecycle) - what happens after the market closes.
+- [Market types](/how-it-works/market-types) - the two kinds of markets and how their odds work.
+- [FAQ](/troubleshooting/faq) - common questions about privacy and recovery.

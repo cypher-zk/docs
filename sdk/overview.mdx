@@ -1,10 +1,10 @@
 ---
-title: "@cypher-zk/sdk: TypeScript SDK for Cypher Prediction"
+title: "@cypher-zk/sdk: TypeScript SDK for Cyphers Prediction"
 sidebarTitle: "Overview"
-description: "Everything you need to build on Cypher: a typed TypeScript SDK covering the on-chain client, React hooks, utilities, and raw instruction builders."
+description: "Everything you need to build on Cyphers: a typed TypeScript SDK covering the on-chain client, React hooks, utilities, and raw instruction builders."
 ---
 
-`@cypher-zk/sdk` is the official TypeScript library for interacting with the Cypher prediction market protocol on Solana. It wraps every on-chain instruction in a strongly-typed API, ships pre-built React hooks backed by TanStack Query, and exposes Arcium MPC encryption helpers so your users' bet amounts and sides remain private end-to-end.
+`@cypher-zk/sdk` is the official TypeScript library for interacting with the Cyphers prediction market protocol on Solana. It wraps every on-chain instruction in a strongly-typed API, ships pre-built React hooks backed by TanStack Query, and exposes Arcium MPC encryption helpers so your users' bet amounts and sides remain private end-to-end.
 
 The package is split into three import paths to keep bundle sizes lean. Most frontend applications only need the main entry point and the React subpath.
 
@@ -66,14 +66,14 @@ The package exposes three named subpaths. Import only what your environment need
 
 ## Quick start
 
-The minimal setup for a React application — create the client once and share it through the provider:
+The minimal setup for a React application - create the client once and share it through the provider:
 
 ```typescript
 import { CypherClient } from '@cypher-zk/sdk';
 import { CypherProvider } from '@cypher-zk/sdk/react';
 import { Connection } from '@solana/web3.js';
 
-// 1. Build the client (synchronous — no await)
+// 1. Build the client (synchronous - no await)
 const client = new CypherClient({
   connection: new Connection('https://api.devnet.solana.com', 'confirmed'),
   wallet: yourConnectedWallet,
@@ -102,7 +102,7 @@ From any component inside the provider you can now call hooks like `useMarkets()
     Fourteen hooks for reading market state and submitting transactions, all backed by TanStack Query with automatic cache invalidation.
   </Card>
   <Card title="Actions" icon="bolt" href="/sdk/actions/markets">
-    High-level action functions — `createMarket`, `placeBet`, `resolveMarket`, `claimPayout`, and more. Each returns a progress-emitting promise.
+    High-level action functions - `createMarket`, `placeBet`, `resolveMarket`, `claimPayout`, and more. Each returns a progress-emitting promise.
   </Card>
   <Card title="Utilities" icon="wrench" href="/sdk/utilities/market-helpers">
     Fee calculators, market-phase helpers, question label parsers, Arcium encryption functions, and on-chain event parsers.
@@ -115,7 +115,7 @@ A selection of the most commonly referenced constants exported from `@cypher-zk/
 
 | Constant | Value | Description |
 |---|---|---|
-| `PROGRAM_ID` | `cyphPe923…oh2B` | Deployed Cypher program address |
+| `PROGRAM_ID` | `cyphPe923…oh2B` | Deployed Cyphers program address |
 | `MIN_BET_USDC` | `1_000_000n` | Minimum bet ($1 USDC, 6 decimals) |
 | `MIN_CREATOR_BOND` | `20_000_000n` | Minimum market creation bond ($20 USDC) |
 | `ODDS_SCALE` | `1_000_000_000n` | Fixed-point scale for odds values (1e9) |

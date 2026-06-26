@@ -1,10 +1,10 @@
 ---
-title: "Market Helper Utilities for Cypher (@cypher-zk/sdk)"
+title: "Market Helper Utilities for Cyphers (@cypher-zk/sdk)"
 sidebarTitle: "Market Helpers"
 description: "Pure utility functions for market phase detection, fee calculation, question parsing, outcome formatting, and cancel eligibility checks in @cypher-zk/sdk."
 ---
 
-The `@cypher-zk/sdk` package exports a set of pure utility functions that let you derive UI state from on-chain data without additional RPC calls. Import them directly alongside your action calls — they are all synchronous and side-effect free.
+The `@cypher-zk/sdk` package exports a set of pure utility functions that let you derive UI state from on-chain data without additional RPC calls. Import them directly alongside your action calls - they are all synchronous and side-effect free.
 
 ```typescript
 import {
@@ -28,7 +28,7 @@ import {
 
 ### marketPhase
 
-Computes the current lifecycle phase of a market from its on-chain account fields. No RPC call is made — pass the already-fetched `Market` account.
+Computes the current lifecycle phase of a market from its on-chain account fields. No RPC call is made - pass the already-fetched `Market` account.
 
 ```typescript
 const market = await client.markets.fetchByPda(marketId);
@@ -55,8 +55,8 @@ const phase = marketPhase(market);
 | `"disputed"` | PendingResolution + flagged | `adminOverrideResolution` (admin only) |
 | `"claimable"` | Resolved + before `claimDeadline` | `claimPayout` |
 | `"refundable"` | Active + past `resolutionDeadline`, before `refundDeadline` | `claimRefund` |
-| `"expired"` | All deadlines elapsed | `adminClaimRemaining` (Cypher team only) |
-| `"cancelled"` | State = Closed (no bets placed) | — |
+| `"expired"` | All deadlines elapsed | `adminClaimRemaining` (Cyphers team only) |
+| `"cancelled"` | State = Closed (no bets placed) | - |
 
 ---
 
@@ -64,7 +64,7 @@ const phase = marketPhase(market);
 
 ### computeFees
 
-Calculates the protocol fee, LP fee, and net amount for a given stake before submitting a bet. Mirrors the on-chain fee calculation exactly — use this to show users a fee breakdown without an RPC round-trip.
+Calculates the protocol fee, LP fee, and net amount for a given stake before submitting a bet. Mirrors the on-chain fee calculation exactly - use this to show users a fee breakdown without an RPC round-trip.
 
 ```typescript
 import { computeFees } from "@cypher-zk/sdk";
@@ -168,7 +168,7 @@ const labels = getMarketOptionLabels(market, rawQuestion);
   The **raw** question string including the `[…]` suffix. Do not pass the `displayQuestion` stripped version here.
 </ParamField>
 
-**Returns** `string[]` — one label per outcome, in side-index order.
+**Returns** `string[]` - one label per outcome, in side-index order.
 
 ---
 
@@ -193,7 +193,7 @@ const resolved = formatOutcome(market, rawQuestion);
   Raw question string including the `[…]` suffix for label extraction.
 </ParamField>
 
-**Returns** `string | null` — the outcome label, or `null` when unresolved.
+**Returns** `string | null` - the outcome label, or `null` when unresolved.
 
 ---
 
@@ -208,7 +208,7 @@ const markets = await client.markets.all();
 const questionMap = await fetchMarketQuestions(client, markets.map(m => m.account));
 
 for (const { publicKey, account } of markets) {
-  // Always use this pattern — do NOT access market.question directly
+  // Always use this pattern - do NOT access market.question directly
   const rawQuestion =
     questionMap.get(publicKey.toBase58()) ||
     account.inlineQuestion ||
@@ -229,7 +229,7 @@ for (const { publicKey, account } of markets) {
   Array of `MarketAccount` objects whose questions you want to fetch. The function batches all `getMultipleAccounts` calls into a single RPC request.
 </ParamField>
 
-**Returns** `Promise<Map<string, string>>` — a `Map` keyed by market PDA base58 string, values are raw question strings (including any `[…]` suffix).
+**Returns** `Promise<Map<string, string>>` - a `Map` keyed by market PDA base58 string, values are raw question strings (including any `[…]` suffix).
 
 ---
 
@@ -277,7 +277,7 @@ const { ok, reason } = cancelEligibility(market);
 
 if (!ok) {
   // possible reason values:
-  // "1 bet(s) placed — cannot cancel"
+  // "1 bet(s) placed - cannot cancel"
   // "state is Resolved (only Active markets can be cancelled)"
   console.error("Cannot cancel:", reason);
   return;
@@ -333,7 +333,7 @@ try {
 **Returns** `ParsedCypherError | null`:
 
 <ResponseField name="code" type="number">
-  Numeric Cypher error code (6000–6044).
+  Numeric Cyphers error code (6000–6044).
 </ResponseField>
 
 <ResponseField name="name" type="string">

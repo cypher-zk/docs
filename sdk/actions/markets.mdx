@@ -1,10 +1,10 @@
 ---
-title: "Cypher Market Actions: Create, Cancel, and Manage Markets"
+title: "Cyphers Market Actions: Create, Cancel, and Manage Markets"
 sidebarTitle: "Markets"
 description: "Create YesNo and MultiOutcome prediction markets, cancel markets before any bets are placed, and withdraw creator bond and LP fees after settlement."
 ---
 
-Market actions are available on `client.actions` and handle the full lifecycle of a prediction market on Cypher — from creation through cancellation or post-settlement withdrawal. Every market creation locks a creator bond of at least $20 USDC, which is returned (plus any LP fees) once the market is settled and you call `withdrawCreatorFunds`.
+Market actions are available on `client.actions` and handle the full lifecycle of a prediction market on Cyphers - from creation through cancellation or post-settlement withdrawal. Every market creation locks a creator bond of at least $20 USDC, which is returned (plus any LP fees) once the market is settled and you call `withdrawCreatorFunds`.
 
 ## createMarket
 
@@ -67,10 +67,10 @@ Creates a MultiOutcome prediction market with 2–4 discrete outcomes.
   MultiOutcome questions **must** end with a `[A|B|C]` suffix that lists outcome labels separated by pipes. The labels are stored on-chain and extracted by `parseEmbeddedOptions`. If you omit the suffix, `getMarketOptionLabels` falls back to generic `"Outcome 1"`, `"Outcome 2"`, … labels and users won't see meaningful button text.
 
   ```typescript
-  // ✅ Correct — labels embedded in the question
+  // ✅ Correct - labels embedded in the question
   question: "Who wins the 2026 World Cup? [Brazil|France|Germany|Argentina]"
 
-  // ❌ Wrong — no labels, generic fallback will be used
+  // ❌ Wrong - no labels, generic fallback will be used
   question: "Who wins the 2026 World Cup?"
   ```
 </Warning>
@@ -137,7 +137,7 @@ const market = await client.markets.fetchByPda(marketId);
 const { ok, reason } = cancelEligibility(market);
 
 if (!ok) {
-  // reason: "1 bet(s) placed — cannot cancel"
+  // reason: "1 bet(s) placed - cannot cancel"
   // reason: "state is Resolved (only Active markets can be cancelled)"
   throw new Error(reason!);
 }
@@ -174,7 +174,7 @@ const market = await client.markets.fetchByPda(marketId);
 const phase = marketPhase(market);
 
 if (phase !== "claimable" && phase !== "expired") {
-  throw new Error(`Market is ${phase} — cannot withdraw yet`);
+  throw new Error(`Market is ${phase} - cannot withdraw yet`);
 }
 
 const { sig } = await client.actions.withdrawCreatorFunds({ market: marketId });

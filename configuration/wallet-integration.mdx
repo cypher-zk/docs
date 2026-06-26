@@ -1,10 +1,10 @@
 ---
-title: "Wallet Integration: Connect Any Solana Wallet to Cypher"
+title: "Wallet Integration: Connect Any Solana Wallet to Cyphers"
 sidebarTitle: "Wallet Integration"
 description: "Connect any Solana wallet adapter to CypherClient, use keypair wrappers for Node.js scripts, and create read-only wallets for fetching without signing."
 ---
 
-Cypher's SDK accepts any wallet that satisfies the `Wallet` interface — from Phantom and Solflare in the browser to bare keypairs in scripts and tests. This page shows you how to connect each kind of wallet to a `CypherClient`, and when to reach for the utility helpers `keypairToWallet` and `readonlyWallet`.
+Cyphers' SDK accepts any wallet that satisfies the `Wallet` interface - from Phantom and Solflare in the browser to bare keypairs in scripts and tests. This page shows you how to connect each kind of wallet to a `CypherClient`, and when to reach for the utility helpers `keypairToWallet` and `readonlyWallet`.
 
 ## The Wallet interface
 
@@ -52,7 +52,7 @@ function InnerProviders({ children }: { children: React.ReactNode }) {
 
   const client = new CypherClient({
     connection,
-    wallet: wallet as never, // safe — adapter shape matches the SDK interface
+    wallet: wallet as never, // safe - adapter shape matches the SDK interface
     cluster: "devnet",
   });
 
@@ -96,7 +96,7 @@ const client = new CypherClient({
 });
 ```
 
-`keypairToWallet` returns a fully functional wallet that can sign transactions — the same `client.actions.*` methods work identically whether you're in a browser or a Node script.
+`keypairToWallet` returns a fully functional wallet that can sign transactions - the same `client.actions.*` methods work identically whether you're in a browser or a Node script.
 
 ## Read-only wallet (data fetching without signing)
 
@@ -123,12 +123,12 @@ await client.actions.placeBet(...); // throws
 ```
 
 <Note>
-  `readonlyWallet` is ideal for Next.js server components and API routes that prefetch market data for SSR without needing a wallet connection. You can pass any valid `PublicKey` — the address is only used as the fee-payer identity for fee estimation.
+  `readonlyWallet` is ideal for Next.js server components and API routes that prefetch market data for SSR without needing a wallet connection. You can pass any valid `PublicKey` - the address is only used as the fee-payer identity for fee estimation.
 </Note>
 
 ## Multi-wallet scenarios (relayer + user)
 
-If your architecture separates the fee payer from the position owner — for example, a relayer service pays SOL gas while users own their encrypted positions — pass both identities explicitly to bet actions:
+If your architecture separates the fee payer from the position owner - for example, a relayer service pays SOL gas while users own their encrypted positions - pass both identities explicitly to bet actions:
 
 ```typescript
 import { sendIx } from "@cypher-zk/sdk";
@@ -140,7 +140,7 @@ const ix = await client.bets.placeYesnoIx({
   // ... other params
 });
 
-// Both must sign — pass the user keypair as an extra signer
+// Both must sign - pass the user keypair as an extra signer
 await sendIx(client, ix, { signers: [userKeypair] });
 // The relayer signs as payer automatically via the provider
 ```

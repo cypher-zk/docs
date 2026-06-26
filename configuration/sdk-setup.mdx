@@ -4,7 +4,7 @@ sidebarTitle: "SDK Setup"
 description: "Install @cypher-zk/sdk, create a CypherClient with the right options, and configure Buffer polyfills for Vite or Next.js browser bundlers."
 ---
 
-The `@cypher-zk/sdk` package gives you everything you need to interact with Cypher's prediction market program on Solana — from placing encrypted bets to claiming payouts. This page walks you through installing the SDK, wiring up a `CypherClient`, and resolving the bundler quirks you're most likely to encounter in a browser project.
+The `@cypher-zk/sdk` package gives you everything you need to interact with Cyphers' prediction market program on Solana - from placing encrypted bets to claiming payouts. This page walks you through installing the SDK, wiring up a `CypherClient`, and resolving the bundler quirks you're most likely to encounter in a browser project.
 
 ## Installation
 
@@ -12,7 +12,7 @@ The `@cypher-zk/sdk` package gives you everything you need to interact with Cyph
 
 ### Install core dependencies
 
-Install the SDK alongside `@solana/web3.js` v1. The SDK is not compatible with `@solana/web3.js` v2 — pin the v1 range explicitly.
+Install the SDK alongside `@solana/web3.js` v1. The SDK is not compatible with `@solana/web3.js` v2 - pin the v1 range explicitly.
 
 ```bash
 npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
@@ -28,9 +28,9 @@ The SDK ships three importable subpaths:
 
 | Subpath | Use case |
 |---|---|
-| `@cypher-zk/sdk` | Core client, actions, and utilities — browser-safe and Node-safe |
+| `@cypher-zk/sdk` | Core client, actions, and utilities - browser-safe and Node-safe |
 | `@cypher-zk/sdk/react` | React hooks built on TanStack Query v5 |
-| `@cypher-zk/sdk/node` | Reserved for future Cypher team admin tools — **never import in browser code** |
+| `@cypher-zk/sdk/node` | Reserved for future Cyphers team admin tools - **never import in browser code** |
 
 For React apps, add the React peer dependencies:
 
@@ -40,7 +40,7 @@ npm install @tanstack/react-query @solana/wallet-adapter-react @solana/wallet-ad
 
 ### Create a CypherClient
 
-Construction is synchronous — no RPC calls fire until you use the client. Pass a `Connection` from `@solana/web3.js` and a wallet that satisfies the `Wallet` interface (see [Wallet Integration](/configuration/wallet-integration)).
+Construction is synchronous - no RPC calls fire until you use the client. Pass a `Connection` from `@solana/web3.js` and a wallet that satisfies the `Wallet` interface (see [Wallet Integration](/configuration/wallet-integration)).
 
 ```typescript
 import { Connection } from "@solana/web3.js";
@@ -61,7 +61,7 @@ const client = new CypherClient({
 Choose the right `cluster` and `commitment` for your environment:
 
 ```typescript
-// Development — Solana devnet
+// Development - Solana devnet
 const devClient = new CypherClient({
   connection: new Connection("https://api.devnet.solana.com"),
   wallet,
@@ -69,7 +69,7 @@ const devClient = new CypherClient({
   commitment: "confirmed",
 });
 
-// Production — Solana mainnet
+// Production - Solana mainnet
 const prodClient = new CypherClient({
   connection: new Connection("https://api.mainnet-beta.solana.com"),
   wallet,
@@ -92,12 +92,12 @@ All options passed to `new CypherClient({...})`:
 
 | Option | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `connection` | `Connection` | ✅ | — | A `@solana/web3.js` `Connection` instance pointing to your RPC endpoint |
-| `wallet` | `Wallet` | ✅ | — | Any object satisfying the `Wallet` interface — wallet adapter, keypair wrapper, or read-only wallet |
-| `cluster` | `'devnet' \| 'mainnet-beta'` | — | `'devnet'` | Target cluster — controls Arcium endpoint and expected mint |
-| `commitment` | `Commitment` | — | `'confirmed'` | Transaction confirmation level used by the internal Anchor provider |
-| `programId` | `PublicKey` | — | Built-in program address | Override the on-chain program address (useful for local testing with a custom deployment) |
-| `confirmOptions` | `ConfirmOptions` | — | — | Additional options forwarded to the Anchor provider's `sendAndConfirm` calls |
+| `connection` | `Connection` | ✅ | - | A `@solana/web3.js` `Connection` instance pointing to your RPC endpoint |
+| `wallet` | `Wallet` | ✅ | - | Any object satisfying the `Wallet` interface - wallet adapter, keypair wrapper, or read-only wallet |
+| `cluster` | `'devnet' \| 'mainnet-beta'` | - | `'devnet'` | Target cluster - controls Arcium endpoint and expected mint |
+| `commitment` | `Commitment` | - | `'confirmed'` | Transaction confirmation level used by the internal Anchor provider |
+| `programId` | `PublicKey` | - | Built-in program address | Override the on-chain program address (useful for local testing with a custom deployment) |
+| `confirmOptions` | `ConfirmOptions` | - | - | Additional options forwarded to the Anchor provider's `sendAndConfirm` calls |
 
 <Tip>
   For most apps, you only need `connection`, `wallet`, and `cluster`. The defaults for `commitment` and `confirmOptions` are suitable for production use.
@@ -125,7 +125,7 @@ export default defineConfig({
 
 ### Next.js (Webpack)
 
-No extra packages required — configure the Webpack fallback in `next.config.js`:
+No extra packages required - configure the Webpack fallback in `next.config.js`:
 
 ```javascript
 // next.config.js
