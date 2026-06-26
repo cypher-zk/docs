@@ -12,8 +12,11 @@ This page walks you through your first bet on Cyphers, end to end. No code - jus
 - Some **USDC** on Solana. The minimum bet is `$1`, but bring whatever you're comfortable putting up. You can swap SOL for USDC on any Solana DEX (Jupiter, Raydium, Phantom's built-in swap).
 
 <Note>
-  Cyphers runs on Solana devnet during the beta. Devnet uses a test USDC mint that has no real value - there's a built-in faucet in the app to top you up.
+  Cyphers runs on Solana devnet during the beta. Devnet uses a test USDC mint
+  that has no real value - there's a built-in faucet in the app to top you up.
 </Note>
+- Alternatively, if you don't want to use the in-app faucet, you can claim free
+devnet USDC (CSDC) from **https://faucet.cyphers.live**.
 
 ## Place your first bet
 
@@ -24,12 +27,14 @@ This page walks you through your first bet on Cyphers, end to end. No code - jus
     <Tip>
       If nothing happens, check that your wallet is unlocked and that it's set to the right network (Devnet during the beta, Mainnet after launch).
     </Tip>
+
   </Step>
 
   <Step title="Pick a market">
     Browse the **Markets** page. Each card shows the question, the current odds (how the pool is split between the sides), how much has been bet in total, and how long until the market closes.
 
     Look for a market in the **betting** phase - that's the only phase that accepts new bets.
+
   </Step>
 
   <Step title="Choose a side and an amount">
@@ -39,6 +44,7 @@ This page walks you through your first bet on Cyphers, end to end. No code - jus
     - For a **MultiOutcome** market: one button per option (`2` to `4` options).
 
     Pick a side. Enter the amount in USDC - the minimum is `$1`. The app shows you the fees before you confirm.
+
   </Step>
 
   <Step title="Confirm the transaction">
@@ -51,6 +57,7 @@ This page walks you through your first bet on Cyphers, end to end. No code - jus
     - The Arcium network processes it within around `10` seconds.
 
     The app shows progress for each step. You don't need to do anything during the wait.
+
   </Step>
 
   <Step title="See your position">
@@ -62,6 +69,7 @@ This page walks you through your first bet on Cyphers, end to end. No code - jus
     - The market's status.
 
     Your side is only visible to you (the app decrypts it locally). Anyone else looking at the chain sees encrypted bytes.
+
   </Step>
 </Steps>
 
@@ -83,15 +91,18 @@ If you picked the winning side, your position is now claimable.
 
 <Steps>
   <Step title="Open your position">
-    Go to **Positions** and find the resolved market. The card shows your stake, your side, and your projected payout.
+    Go to **Positions** and find the resolved market. The card shows your stake,
+    your side, and your projected payout.
   </Step>
   <Step title="Click Claim">
-    Sign the transaction in your wallet. USDC lands in your account a few seconds later.
+    Sign the transaction in your wallet. USDC lands in your account a few
+    seconds later.
   </Step>
 </Steps>
 
 <Note>
-  If the market resolved against you, there's nothing to claim. The position stays in your history as a record.
+  If the market resolved against you, there's nothing to claim. The position
+  stays in your history as a record.
 </Note>
 
 If something looks wrong with the resolution, you can dispute it during the challenge window. See [Dispute resolution](/guides/dispute-resolution).
