@@ -1,30 +1,35 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "name": "Cyphers",
-  "theme": "luma",
+  "theme": "linden",
   "logo": {
     "light": "/cyphers.png",
     "dark": "/cyphers.png",
     "href": "https://cypher-zk.github.io"
+  },
+  "icons": {
+    "library": "fontawesome"
   },
   "favicon": "/cyphers.png",
   "colors": {
     "primary": "#6d45fc",
     "light": "#b49cfc"
   },
+  "fonts": {
+    "heading": {
+      "family": "Open Sans",
+      "weight": 700
+    },
+    "body": {
+      "family": "Open Sans",
+      "weight": 400
+    }
+  },
   "appearance": {
-    "default": "dark"
+    "default": "system"
   },
   "background": {
     "decoration": "gradient"
-  },
-  "fonts": {
-    "heading": {
-      "family": "Inter"
-    },
-    "body": {
-      "family": "Inter"
-    }
   },
   "navbar": {
     "primary": {
@@ -34,7 +39,8 @@
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/cypher-zk"
+      "github": "https://github.com/cypher-zk",
+      "x": "https://x.com/cypherzk_"
     }
   },
   "navigation": {
@@ -44,6 +50,7 @@
         "groups": [
           {
             "group": "Get started",
+            "icon": "rocket",
             "pages": [
               "introduction",
               "quickstart"
@@ -51,6 +58,7 @@
           },
           {
             "group": "How it works",
+            "icon": "cogs",
             "pages": [
               "how-it-works/privacy-model",
               "how-it-works/market-types",
@@ -60,6 +68,7 @@
           },
           {
             "group": "Using Cyphers",
+            "icon": "hand-holding-dollar",
             "pages": [
               "guides/place-a-bet",
               "guides/create-a-market",
@@ -69,6 +78,7 @@
           },
           {
             "group": "Help",
+            "icon": "question-circle",
             "pages": [
               "troubleshooting/faq",
               "troubleshooting/common-errors"
