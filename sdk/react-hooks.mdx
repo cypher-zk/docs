@@ -1,5 +1,5 @@
 ---
-title: "React Hooks for Cypher Prediction Markets"
+title: "React Hooks Reference for Cypher Prediction Markets SDK"
 sidebarTitle: "React Hooks"
 description: "Complete reference for all React hooks in @cypher-zk/sdk/react — query hooks, mutation hooks, event subscriptions, and query-key factories."
 ---
@@ -35,7 +35,7 @@ function Providers({ children }: { children: React.ReactNode }) {
         signTransaction: wallet.signTransaction!,
         signAllTransactions: wallet.signAllTransactions!,
       },
-      cluster: 'mainnet-beta',
+      cluster: 'mainnet',
     });
   }, [wallet.publicKey]);
 
@@ -290,7 +290,7 @@ type ActionStage =
 
 Places a private bet on a market. The bet amount and side are Rescue-encrypted before the transaction is submitted.
 
-**Invalidates:** `marketKeys.detail(market)`, `positionKeys.user(user)`
+**Invalidates:** `marketKeys.detail(market)`, `positionKeys.byUser(user)`
 
 ```typescript
 import { usePlaceBet } from '@cypher-zk/sdk/react';
@@ -372,7 +372,7 @@ function ResolveButton({ marketId, outcome }) {
 
 Claims the winning payout for a resolved market. Any user with a winning position can call this.
 
-**Invalidates:** `positionKeys.user(user)`, `marketKeys.detail(market)`
+**Invalidates:** `positionKeys.byUser(user)`, `marketKeys.detail(market)`
 
 ```typescript
 import { useClaimPayout } from '@cypher-zk/sdk/react';
@@ -394,7 +394,7 @@ function ClaimButton({ marketId }) {
 
 Claims a refund when a market has passed its resolution deadline without resolving. Any user with an open position can call this.
 
-**Invalidates:** `positionKeys.user(user)`, `marketKeys.detail(market)`
+**Invalidates:** `positionKeys.byUser(user)`, `marketKeys.detail(market)`
 
 ```typescript
 import { useClaimRefund } from '@cypher-zk/sdk/react';
@@ -524,7 +524,7 @@ const qc = useQueryClient();
 
 // After manually sending an instruction that affects a market:
 await qc.invalidateQueries({ queryKey: marketKeys.detail(marketId) });
-await qc.invalidateQueries({ queryKey: positionKeys.user(userPublicKey) });
+await qc.invalidateQueries({ queryKey: positionKeys.byUser(userPublicKey) });
 ```
 
 | Factory | Signature | Invalidates |
@@ -532,7 +532,7 @@ await qc.invalidateQueries({ queryKey: positionKeys.user(userPublicKey) });
 | `globalStateKeys.all()` | `() => QueryKey` | All global state queries |
 | `marketKeys.all()` | `() => QueryKey` | All market list queries |
 | `marketKeys.detail(id)` | `(bigint \| number) => QueryKey` | Single market query |
-| `positionKeys.user(pubkey)` | `(PublicKey) => QueryKey` | All positions for a user |
+| `positionKeys.byUser(pubkey)` | `(PublicKey) => QueryKey` | All positions for a user |
 | `positionKeys.forMarket(pubkey)` | `(PublicKey) => QueryKey` | All positions on a market |
 | `positionKeys.forPair(market, user, betIndex?)` | `(PublicKey, PublicKey, bigint?) => QueryKey` | Specific position tuple |
 

@@ -1,5 +1,5 @@
 ---
-title: "Bet Actions: Place Encrypted Predictions"
+title: "Bet Actions: Place Encrypted Predictions on Cypher"
 sidebarTitle: "Bets"
 description: "Place privacy-preserving bets on Cypher markets. Your chosen side is encrypted with Arcium MPC before submission and never exposed on-chain."
 ---
@@ -40,7 +40,7 @@ await saveSecret(marketId, betIndex, userKeypair.privateKey);
   Stake in USDC lamports (6 decimal places). The minimum is `market.minBet` (typically `1_000_000` = $1). Protocol and LP fees are deducted from this amount; the remainder is your `netAmount` tracked on-chain.
 </ParamField>
 
-<ParamField path="onProgress" type="(stage: BetStage) => void">
+<ParamField path="onProgress" type="(event: ActionProgressEvent) => void">
   Optional callback invoked at each stage of the bet flow. Use this to drive progress UI — see the stage reference below.
 </ParamField>
 
@@ -50,7 +50,7 @@ await saveSecret(marketId, betIndex, userKeypair.privateKey);
   Solana transaction signature for the `placePrivateBet` instruction.
 </ResponseField>
 
-<ResponseField name="userKeypair" type="CryptoKeyPair">
+<ResponseField name="userKeypair" type="UserCryptoKeypair">
   The freshly generated x25519 keypair used to encrypt this bet. **You must persist `userKeypair.privateKey`.** Key by `(market, betIndex)` so you can handle multiple bets on the same market.
 </ResponseField>
 

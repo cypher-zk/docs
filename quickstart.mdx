@@ -1,7 +1,7 @@
 ---
-title: "Get Started with Cypher Prediction Markets"
+title: "Cypher SDK Quickstart: Place Your First Encrypted Bet"
 sidebarTitle: "Quickstart"
-description: "Install @cypher-zk/sdk, connect your Solana wallet, and place your first encrypted prediction in under 5 minutes."
+description: "Install @cypher-zk/sdk, connect your Solana wallet, and place your first privacy-preserving encrypted prediction in under 5 minutes."
 ---
 
 This guide walks you through installing the Cypher SDK, connecting to Solana, fetching available markets, and placing your first encrypted bet. By the end you'll have a working TypeScript snippet you can drop into any Solana wallet-adapter app.
@@ -11,13 +11,13 @@ This guide walks you through installing the Cypher SDK, connecting to Solana, fe
     Install `@cypher-zk/sdk` alongside Solana's web3.js library. Cypher requires **web3.js v1** — do not install `@solana/web3.js@latest`, which is a completely incompatible v2 rewrite.
 
     ```bash
-    npm install @cypher-zk/sdk @solana/web3.js
+    npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
     ```
 
     If you're building a React app, no extra packages are needed — the React hooks ship inside the same package at the `@cypher-zk/sdk/react` subpath.
 
     <Tip>
-      Pin `@solana/web3.js` to `^1.95.4` in your `package.json` to prevent accidental upgrades to v2.
+      Pin `@solana/web3.js` to `^1.95.4` in your `package.json` to prevent accidental upgrades to the incompatible v2 rewrite.
     </Tip>
   </Step>
 
@@ -78,7 +78,7 @@ This guide walks you through installing the Cypher SDK, connecting to Solana, fe
     const markets = await client.markets.all();
 
     // Batch-fetch question text for each market
-    const questionMap = await fetchMarketQuestions(client, markets.map((m) => m.publicKey));
+    const questionMap = await fetchMarketQuestions(client, markets);
 
     for (const { publicKey, account } of markets) {
       const pda = publicKey.toBase58();

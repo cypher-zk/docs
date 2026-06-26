@@ -1,5 +1,5 @@
 ---
-title: "Encryption Utilities for Private Bet Submission"
+title: "Encryption Utilities for Private Cypher Bet Submission"
 sidebarTitle: "Encryption"
 description: "Low-level x25519 and RescueCipher utilities for encrypting and decrypting Cypher bet positions. Use placeBet for normal flows; these are for advanced use."
 ---
@@ -44,7 +44,7 @@ const keypair = await createUserKeypair();
 // keypair.publicKey   — CryptoKey, sent on-chain in position.userPubkey
 ```
 
-**Returns** `Promise<CryptoKeyPair>` — a Web Crypto API `CryptoKeyPair` using the `X25519` algorithm.
+**Returns** `Promise<UserCryptoKeypair>` — a `UserCryptoKeypair` wrapping the x25519 key pair used for ECDH encryption.
 
 <Warning>
   **Persist `keypair.privateKey` immediately.** Export and store it securely (e.g., encrypted local storage or a hardware wallet). There is no recovery path — if you lose this key you can still claim funds but cannot decrypt your position to verify which side you chose.

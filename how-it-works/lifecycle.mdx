@@ -1,5 +1,5 @@
 ---
-title: "Market Lifecycle: From Creation to Payout"
+title: "Cypher Prediction Market Lifecycle: All Nine Phases"
 sidebarTitle: "Lifecycle"
 description: "Follow a Cypher prediction market from creation through betting, lock, MPC settlement, the challenge window, and final payout or refund."
 ---
@@ -14,7 +14,7 @@ Every Cypher market moves through a defined sequence of states — from the mome
 
     The creator posts a $10 USDC bond, sets the question, oracle type, lock timestamp, and resolve deadline. Pools are initialized. The market enters the `betting` phase immediately.
 
-    During `betting`, anyone can call `placeBet` (or `placeBetAccuracy`). Each bet encrypts the prediction client-side and creates an `EncryptedPosition` account on Solana. The stake amount is transferred to the pool vault.
+    During `betting`, anyone can call `placeBet` (or `placeBetAccuracy`). Each bet encrypts the prediction client-side and creates a `Position` account on Solana storing the ciphertext. The stake amount is transferred to the pool vault.
 
     This phase lasts until `lock_timestamp` is reached.
   </Step>
@@ -50,10 +50,10 @@ Every Cypher market moves through a defined sequence of states — from the mome
   <Step title="MPC settlement — Arcium computes winner mask (~10 seconds)">
     **Who triggers it:** The Cypher backend, after `finalizeResolution`.
 
-    The backend calls `queue_settlement_yesno`, `queue_settlement_multioutcome`, or `queue_settlement_accuracy`, passing all encrypted position payloads to the Arcium MXE cluster. The MPC circuit runs inside an encrypted context, determines winners, and fires a callback to the Solana program.
+    Once finalized, the Cypher backend submits all encrypted position payloads to the Arcium MXE cluster. The MPC circuit runs entirely inside an encrypted context — no single party ever sees individual predictions in plaintext. The cluster determines winners and fires a callback to the Solana program.
 
     <Note>
-      Arcium MPC settlement typically completes in **~10 seconds** on devnet. The `placeBet` action surfaces this as the `"awaiting-callback"` progress stage. You can poll for completion using `awaitComputation(client, computationOffset)`.
+      Arcium MPC settlement typically completes in **~10 seconds** on devnet. You can poll for settlement completion using `awaitComputation(client, computationOffset)`.
     </Note>
 
     The callback writes each position's `payout` field and marks the pool as `Settled`. Fees are transferred to the treasury and creator at this point.

@@ -1,5 +1,5 @@
 ---
-title: "Troubleshoot Common Cypher SDK Errors"
+title: "Common Cypher SDK Errors: Diagnosis and Fixes Guide"
 sidebarTitle: "Common Errors"
 description: "Diagnose and fix the most frequent Cypher SDK errors — from lost keypairs and MPC timeouts to web3.js version mismatches and missing Buffer polyfills."
 ---
@@ -294,7 +294,7 @@ The program emits structured error codes in the range 6000–6044. Use `parseCyp
 | 6009 | `BetTooSmall` | Amount is below `market.minBet` — validate before submitting |
 | 6023 | `ResolutionDeadlinePassed` | Resolver missed the window — offer `claimRefund` instead |
 | 6033 | `WrongMint` | Read mint from `GlobalState.acceptedMint`, don't hardcode it |
-| 6037 | `BondTooSmall` | Pass `bondAmount >= 20_000_000n` ($20 USDC) when creating a market |
+| 6037 | `BondTooSmall` | Pass `bondAmount >= 10_000_000n` ($10 USDC) when creating a market |
 | 6039 | `ChallengePeriodNotElapsed` | `finalizeResolution` called too early — wait for the challenge window |
 | 6044 | `UnauthorizedUser` | Wallet doesn't match the position owner |
 

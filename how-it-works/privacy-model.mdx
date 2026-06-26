@@ -1,5 +1,5 @@
 ---
-title: "How Cypher Keeps Your Predictions Private"
+title: "How Cypher Keeps Your Predictions Private on Solana"
 sidebarTitle: "Privacy Model"
 description: "Cypher encrypts your prediction choice client-side using x25519 and RescueCipher. Only your stake is visible on-chain until Arcium MPC settles the market."
 ---
@@ -49,13 +49,13 @@ The decryption key is never on-chain and is never held by a single party. It is 
   </Step>
 
   <Step title="Submit encrypted position to Solana">
-    The `placePrivateBetYesnoIx` (or `placePrivateBetMultiIx`) instruction is built with the encrypted payload. The Solana program:
+    The `placeBetAction` submits the encrypted payload to the Solana program. The program:
 
     - Transfers USDC from your wallet to the pool vault
-    - Creates an `EncryptedPosition` account storing the ciphertext, your x25519 public key, and nonce
+    - Creates a `Position` account storing the ciphertext, your x25519 public key, and nonce
     - Queues a computation on the Arcium MXE network
 
-    Your chosen side is never written in plaintext — only the ciphertext and the public accounting fields (`netAmount`, `entryOdds`) are stored.
+    Your chosen side is never written in plaintext — only the ciphertext and the public accounting field (`stake`) are stored.
   </Step>
 
   <Step title="Arcium MPC evaluates encrypted bets">
@@ -80,8 +80,7 @@ The decryption key is never on-chain and is never held by a single party. It is 
 |---|---|---|
 | Your wallet address (`user`) | **Public** | Standard Solana account |
 | Stake amount (`stake`) | **Public** | Required for on-chain vault accounting |
-| Entry odds (`entryOdds`) | **Public** | Locked at bet time, used for payout calculation |
-| Encrypted side (`encryptedPayload`) | **Hidden** — ciphertext only | RescueCipher output |
+| Encrypted prediction (`encryptedPayload`) | **Hidden** — ciphertext only | RescueCipher output |
 | Chosen side / outcome index | **Hidden** | Never written in plaintext |
 | Predicted numeric value (Accuracy) | **Hidden** | Never written in plaintext |
 | x25519 public key + nonce | **Public** | Required for MPC decryption — reveals nothing about your prediction |
@@ -108,5 +107,5 @@ The private key is needed to prove ownership of your position when claiming a pa
 </Warning>
 
 <Tip>
-  Store `userKeypair.privateKey` alongside the `marketId` and `betIndex` in your app's local state or secure storage. When the user returns to claim their payout, you'll need all three values to construct the claim instruction.
+  Store `userKeypair.privateKey` alongside the `marketId` and the `position` public key in your app's local state or secure storage. When the user returns to claim their payout, you'll need these values to construct the claim instruction.
 </Tip>

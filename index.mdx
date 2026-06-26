@@ -1,5 +1,5 @@
 ---
-title: "Cypher: Private Prediction Markets on Solana"
+title: "Cypher Protocol: Private Prediction Markets on Solana"
 sidebarTitle: "Home"
 description: "Cypher lets users place encrypted bets on real-world outcomes. Predictions stay private on-chain until Arcium MPC reveals results at settlement."
 ---
@@ -46,7 +46,7 @@ Getting from zero to a placed bet takes three steps. The SDK handles the encrypt
     Add `@cypher-zk/sdk` and Solana web3.js v1 to your project.
 
     ```bash
-    npm install @cypher-zk/sdk @solana/web3.js
+    npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
     ```
   </Step>
   <Step title="Connect your wallet">
@@ -74,7 +74,10 @@ Getting from zero to a placed bet takes three steps. The SDK handles the encrypt
     });
 
     // ⚠️ Persist userKeypair.privateKey — it cannot be recovered on-chain
-    localStorage.setItem(`secret:${marketId}`, userKeypair.privateKey);
+    localStorage.setItem(
+      `secret:${marketId}`,
+      Buffer.from(userKeypair.privateKey).toString("hex"),
+    );
     ```
   </Step>
 </Steps>

@@ -1,5 +1,5 @@
 ---
-title: "Create a Prediction Market on Cypher"
+title: "Create a Prediction Market on Cypher: Complete Guide"
 sidebarTitle: "Create a Market"
 description: "Set up a YesNo or MultiOutcome prediction market on Cypher, earn LP fees from every bet, and manage your market through resolution and fund withdrawal."
 ---
@@ -69,17 +69,38 @@ After resolution and the claim window, call `withdrawCreatorFunds` to recover yo
     });
     ```
 
-    When displaying outcome buttons in your UI, always derive them from the stored question:
+    When displaying outcome buttons in your UI, always derive them from the stored question. Questions for current (v3) markets are stored in a separate PDA — use `fetchMarketQuestions` to batch-fetch them:
 
     ```typescript
-    import { getMarketOptionLabels, parseEmbeddedOptions } from '@cypher-zk/sdk';
+    import {
+      fetchMarketQuestions,
+      getMarketOptionLabels,
+      parseEmbeddedOptions,
+      fetchMarketsByState,
+      MarketState,
+    } from '@cypher-zk/sdk';
 
-    const rawQuestion = questions.get(market.publicKey.toBase58()) ?? '';
+    // Fetch markets, then batch-fetch their questions in one RPC call
+    const markets = await fetchMarketsByState(client, MarketState.Active);
+    const questions = await fetchMarketQuestions(client, markets);
+
+    // For a specific market, use the fallback chain:
+    const rawQuestion =
+      questions.get(market.publicKey.toBase58())
+      ?? market.account.inlineQuestion
+      ?? `Market #${market.account.marketId}`;
+
     const { displayQuestion } = parseEmbeddedOptions(rawQuestion);
     const labels = getMarketOptionLabels(market.account, rawQuestion);
     // labels = ['Brazil', 'France', 'Germany', 'Argentina']
     // side 0 → Brazil, side 1 → France, etc.
     ```
+
+    <Warning>
+      Never read `market.question` directly — the field is always empty for
+      current (v3) markets. Always use `fetchMarketQuestions(client, markets)`
+      with the fallback chain shown above.
+    </Warning>
 
     <Warning>
       Never hard-code `['YES', 'NO']` or numbered outcomes for MultiOutcome

@@ -1,5 +1,5 @@
 ---
-title: "Cypher Prediction Markets FAQ"
+title: "Cypher SDK FAQ: Settlement, Privacy, and Market Rules"
 sidebarTitle: "FAQ"
 description: "Frequently asked questions about Cypher — settlement time, keypair recovery, USDC, privacy, multi-bet support, creator bonds, and dispute resolution."
 ---
@@ -94,7 +94,7 @@ The accepted mint address is not hardcoded — it's stored in the protocol's on-
 const { acceptedMint } = await client.globalState.fetch();
 ```
 
-The minimum bet size is `1_000_000` raw units ($1 USDC). When creating a market, the creator bond is at least `20_000_000` raw units ($20 USDC).
+The minimum bet size is `1_000_000` raw units ($1 USDC). When creating a market, the creator bond is at least `10_000_000` raw units ($10 USDC).
 
 </Accordion>
 
@@ -114,7 +114,7 @@ This privacy is enforced by the protocol — it's not a UI-level feature that ca
 
 <Accordion title="How does the creator bond work?">
 
-When you create a market, you lock a **creator bond** of at least $20 USDC as a deposit. The bond is held in the market vault and returned to you when the market resolves accurately and you withdraw your creator funds.
+When you create a market, you lock a **creator bond** of at least $10 USDC as a deposit. The bond is held in the market vault and returned to you when the market resolves accurately and you withdraw your creator funds.
 
 The bond serves two purposes:
 1. **Spam prevention** — it costs real money to create a market, discouraging low-quality or malicious markets
@@ -126,7 +126,7 @@ To withdraw your bond and any LP fees after a market resolves:
 await client.actions.withdrawCreatorFunds({ market });
 ```
 
-The minimum bond is `20_000_000` raw units ($20 USDC). There is no upper bound — you can post a larger bond if you want to signal higher confidence in your resolution.
+The minimum bond is `10_000_000` raw units ($10 USDC). There is no upper bound — you can post a larger bond if you want to signal higher confidence in your resolution.
 
 </Accordion>
 

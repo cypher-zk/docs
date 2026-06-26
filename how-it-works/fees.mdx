@@ -1,5 +1,5 @@
 ---
-title: "Fee Structure for Cypher Prediction Markets"
+title: "Cypher Prediction Market Fees: Protocol, LP, and Accuracy"
 sidebarTitle: "Fees"
 description: "Understand how protocol fees, creator LP fees, and Accuracy platform fees are calculated and distributed in Cypher prediction markets."
 ---
@@ -81,7 +81,7 @@ Accuracy markets work differently. Because every participant gets their stake ba
 
   Each winner still receives their full $10 stake back. On top of that, the $16 prize pool is split by the accuracy weighting formula — the closer predictor takes the larger share.
 
-  **Note:** The `computeFees` function is not used for Accuracy markets in the same way. Accuracy fees are computed by the Cypher backend after the MPC circuit reveals the loser count, then sent to the treasury via a separate `accuracy_send_fees` instruction.
+  **Note:** The `computeFees` function is not used for Accuracy markets in the same way. Accuracy fees are computed by the Cypher backend after the MPC circuit reveals the loser count and sent to the treasury automatically as part of the settlement process.
 </Accordion>
 
 ## Creator bond

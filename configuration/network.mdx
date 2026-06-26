@@ -1,5 +1,5 @@
 ---
-title: "Devnet vs Mainnet: Choosing Your Solana Network"
+title: "Network Config: Solana Devnet vs Mainnet for Cypher"
 sidebarTitle: "Network"
 description: "Switch between Solana devnet and mainnet in CypherClient, configure your RPC endpoint, and read the USDC mint address safely from on-chain state."
 ---
@@ -113,7 +113,7 @@ const client = new CypherClient({
 The Cypher program is deployed at the same address on both clusters:
 
 ```
-cyphPe923pnPGVXJL3a3P7t2W9mJsagBcg1oeauoh2B
+CYPHERKLYj1bZtWv7Xut6Snw13ab1DwdJia5ZSEeVeej
 ```
 
 You don't need to pass `programId` to `CypherClient` unless you're deploying a custom build to a local validator. The SDK exports `PROGRAM_ID` as a constant for use in scripts and tests:
@@ -122,7 +122,7 @@ You don't need to pass `programId` to `CypherClient` unless you're deploying a c
 import { PROGRAM_ID } from "@cypher-zk/sdk";
 
 console.log(PROGRAM_ID.toBase58());
-// cyphPe923pnPGVXJL3a3P7t2W9mJsagBcg1oeauoh2B
+// CYPHERKLYj1bZtWv7Xut6Snw13ab1DwdJia5ZSEeVeej
 ```
 
 ## Devnet faucet and token setup

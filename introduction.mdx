@@ -1,7 +1,7 @@
 ---
-title: "Cypher: Private Prediction Markets on Solana"
+title: "Introduction to Cypher: Privacy-Preserving Predictions"
 sidebarTitle: "Introduction"
-description: "Learn what Cypher is, how it uses Arcium MPC to encrypt predictions on-chain, and what you can build with the @cypher-zk/sdk."
+description: "Learn what Cypher is, how it uses Arcium MPC to keep predictions private on-chain, and what you can build with the @cypher-zk/sdk."
 ---
 
 Cypher is a prediction market protocol on Solana where your chosen outcome stays private until settlement. In conventional prediction markets, every bet is publicly readable on-chain the moment it lands — sophisticated actors can front-run positions, markets can be manipulated by watching the order flow, and user behaviour is trivially profiled. Cypher eliminates that problem: your prediction is encrypted with your own x25519 keypair before it leaves your device, and the ciphertext is what gets written to Solana. Nobody — not the protocol, not validators, not other bettors — can read your chosen side until Arcium's MPC network decrypts and settles the market after it closes.

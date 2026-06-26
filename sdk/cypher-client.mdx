@@ -1,5 +1,5 @@
 ---
-title: "CypherClient: Core SDK Client Reference"
+title: "CypherClient SDK Reference: Constructor, Namespaces & Fetch"
 sidebarTitle: "CypherClient"
 description: "Constructor options, all client namespaces, and fetch method examples for CypherClient — the central entry point into the Cypher SDK."
 ---
@@ -41,8 +41,8 @@ const client = new CypherClient({
   ```
 </ParamField>
 
-<ParamField path="cluster" type='"devnet" | "mainnet-beta"'>
-  Selects the known cluster configuration (RPC URL, Arcium cluster offset, expected mint). Defaults to `"devnet"`. You can also pass a full `ClusterConfig` object for a custom endpoint.
+<ParamField path="cluster" type='"devnet" | "mainnet" | "localnet"'>
+  Selects the known cluster configuration (RPC URL, expected mint, and related defaults). Defaults to `"devnet"`. You can also pass a full `ClusterConfig` object for a custom endpoint.
 </ParamField>
 
 <ParamField path="commitment" type="Commitment">
@@ -77,7 +77,7 @@ function buildClient(wallet: ReturnType<typeof useWallet>) {
       signTransaction: wallet.signTransaction!,
       signAllTransactions: wallet.signAllTransactions!,
     },
-    cluster: 'mainnet-beta',
+    cluster: 'mainnet',
   });
 }
 
