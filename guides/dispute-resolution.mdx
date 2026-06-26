@@ -1,0 +1,249 @@
+---
+title: "Dispute a Prediction Market Resolution"
+sidebarTitle: "Dispute Resolution"
+description: "Flag an incorrect market outcome during the 24–48 hour challenge window, track the dispute lifecycle, and finalize resolution once the window clears."
+---
+
+When a Cypher market resolves, it doesn't immediately open for claims. Instead, it enters a **challenge window** — a 24 to 48-hour period during which any wallet can dispute the posted outcome. This window protects bettors from incorrect or manipulated resolutions without requiring a centralized authority to monitor every market. This guide explains how the challenge window works, how to flag a questionable outcome, and how to finalize or override a resolution.
+
+## The resolution phase flow
+
+After the resolver posts an outcome via `resolveMarket`, the market moves through these phases before claims open:
+
+```
+pendingResolution  ──(window elapses, no flag)──→  awaitingFinalize  ──(anyone calls finalizeResolution)──→  claimable
+        │
+        └──(anyone calls flagResolution)──→  disputed  ──(admin calls adminOverrideResolution)──→  claimable
+```
+
+<Note>
+  Never show a "Claim Payout" button while the market is in
+  `pendingResolution`, `awaitingFinalize`, or `disputed`. The SDK's pre-flight
+  check and the on-chain contract both block premature claims — but surfacing
+  the button creates a confusing experience for users.
+</Note>
+
+---
+
+## Checking the current phase
+
+Use `marketPhase()` to determine what actions are available. Poll the market every few seconds during the challenge window to keep your UI in sync.
+
+```typescript
+import { marketPhase } from '@cypher-zk/sdk';
+
+const market = await client.markets.fetch(marketId);
+const phase  = marketPhase(market);
+
+switch (phase) {
+  case 'pendingResolution':
+    // Challenge window is open — show Flag button + countdown
+    break;
+  case 'awaitingFinalize':
+    // Window elapsed undisputed — show Finalize button
+    break;
+  case 'disputed':
+    // Market has been flagged — awaiting admin override
+    break;
+  case 'claimable':
+    // Claims are open — show Claim Payout button
+    break;
+}
+```
+
+The challenge deadline is stored in `market.challengeDeadline` (a Unix timestamp as `bigint`). Use it to render a live countdown:
+
+```typescript
+const nowSec      = BigInt(Math.floor(Date.now() / 1000));
+const secondsLeft = market.challengeDeadline > nowSec
+  ? market.challengeDeadline - nowSec
+  : 0n;
+
+const hours   = Number(secondsLeft) / 3600 | 0;
+const minutes = (Number(secondsLeft) % 3600) / 60 | 0;
+console.log(`Challenge window closes in ${hours}h ${minutes}m`);
+```
+
+---
+
+## Flagging a resolution
+
+During `pendingResolution`, **any connected wallet** can flag the outcome as incorrect. Flagging sets `market.disputed = true` and blocks `finalizeResolution` until an admin reviews it.
+
+```typescript
+import { marketPhase } from '@cypher-zk/sdk';
+
+const market = await client.markets.fetch(marketId);
+
+if (marketPhase(market) === 'pendingResolution') {
+  await client.actions.flagResolution({
+    market: marketPubkey,
+    reason: 'The posted outcome is incorrect — the event did not occur.',
+  });
+  console.log('Resolution flagged. Awaiting admin review.');
+}
+```
+
+<Warning>
+  You cannot flag a resolution after the challenge window closes. The
+  contract throws `ChallengePeriodElapsed` (6040) if you try. Always check
+  `phase === 'pendingResolution'` before showing the Flag button.
+</Warning>
+
+---
+
+## Finalizing an undisputed resolution
+
+Once the challenge window elapses without a flag, the market enters `awaitingFinalize`. At this point, **anyone** can call `finalizeResolution` to advance the market to `claimable` — no special authority required.
+
+```typescript
+if (marketPhase(market) === 'awaitingFinalize') {
+  const result = await client.actions.finalizeResolution({
+    market: marketPubkey,
+  });
+  console.log('Market finalized:', result.signature);
+  // Phase is now 'claimable' — bettors can claim payouts
+}
+```
+
+<Note>
+  Calling `finalizeResolution` before the window closes throws
+  `ChallengePeriodNotElapsed` (6039). Calling it on a disputed market throws
+  `MarketDisputed` (6041). Both are safe to catch and surface as user-facing
+  messages.
+</Note>
+
+---
+
+## Admin override for disputed markets
+
+When a market is in `disputed` phase, only the Cypher admin can resolve the impasse. The admin calls `adminOverrideResolution` with a corrected outcome index — this recomputes the payout ratio from the on-chain plaintext pools and emits a `ResolutionOverriddenEvent` with the old and new outcomes.
+
+```typescript
+// Admin-only path — your UI should gate this behind isAdmin
+if (marketPhase(market) === 'disputed' && isAdmin) {
+  await client.actions.adminOverrideResolution({
+    market: marketPubkey,
+    outcomeValue: 0, // corrected outcome index (0 = NO / first option)
+  });
+  // Phase is now 'claimable'
+}
+```
+
+Non-admin users should see a neutral status message while the market is disputed:
+
+```typescript
+if (phase === 'disputed' && !isAdmin) {
+  return 'This resolution has been disputed. Awaiting admin review.';
+}
+```
+
+---
+
+## Subscribing to challenge-window events
+
+Subscribe to the three events that can change the phase during and after the challenge window. This lets you update your UI reactively rather than polling.
+
+```typescript
+import { marketPda } from '@cypher-zk/sdk';
+
+const targetPda = marketPda(marketId)[0];
+
+const subscriptions = [
+  client.events.onResolutionFlagged((data) => {
+    if (data.market.equals(targetPda)) refetchMarket();
+  }),
+  client.events.onMarketFinalized((data) => {
+    if (data.market.equals(targetPda)) refetchMarket();
+  }),
+  client.events.onResolutionOverridden((data) => {
+    if (data.market.equals(targetPda)) refetchMarket();
+  }),
+];
+
+// Unsubscribe on cleanup
+// subscriptions.forEach((s) => s.unsubscribe());
+```
+
+---
+
+## React example
+
+```typescript
+"use client";
+import { useMarket, useFlagResolution, useFinalizeResolution } from '@cypher-zk/sdk/react';
+import { marketPhase } from '@cypher-zk/sdk';
+import { useWallet } from '@solana/wallet-adapter-react';
+
+function DisputePanel({ marketId }: { marketId: bigint }) {
+  const wallet   = useWallet();
+  const { data: market } = useMarket(marketId, { refetchInterval: 5_000 });
+  const flag     = useFlagResolution();
+  const finalize = useFinalizeResolution();
+
+  if (!market) return null;
+
+  const phase = marketPhase(market);
+
+  if (phase === 'pendingResolution') {
+    return (
+      <div>
+        <p>Challenge window is open. Outcome: <strong>{market.outcome}</strong></p>
+        <button
+          disabled={flag.isPending}
+          onClick={() =>
+            flag.mutate({
+              flagger:  wallet.publicKey!,
+              marketId,
+            })
+          }
+        >
+          {flag.isPending ? 'Flagging…' : 'Flag this resolution'}
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === 'awaitingFinalize') {
+    return (
+      <div>
+        <p>Challenge window elapsed undisputed. Anyone can finalize.</p>
+        <button
+          disabled={finalize.isPending}
+          onClick={() =>
+            finalize.mutate({ caller: wallet.publicKey!, marketId })
+          }
+        >
+          {finalize.isPending ? 'Finalizing…' : 'Finalize resolution'}
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === 'disputed') {
+    return <p>Resolution disputed. Awaiting admin review.</p>;
+  }
+
+  return null;
+}
+```
+
+---
+
+## On-chain consequences summary
+
+| Action | Who can call | Effect |
+|---|---|---|
+| `flagResolution` | Anyone, during `pendingResolution` | Sets `market.disputed = true`; blocks finalization |
+| `finalizeResolution` | Anyone, during `awaitingFinalize` | Advances market to `Resolved`; opens claim window |
+| `adminOverrideResolution` | Admin only, during `disputed` | Re-resolves with corrected outcome; emits `ResolutionOverriddenEvent` |
+
+## Relevant error codes
+
+| Code | Name | Cause |
+|---|---|---|
+| 6038 | `NotPendingResolution` | Calling flag/finalize/override on a market not in state 4 |
+| 6039 | `ChallengePeriodNotElapsed` | Calling `finalizeResolution` before the window closes |
+| 6040 | `ChallengePeriodElapsed` | Calling `flagResolution` after the window closed |
+| 6041 | `MarketDisputed` | Calling `finalizeResolution` on a flagged market |
+| 6042 | `MarketNotDisputed` | Calling `adminOverrideResolution` on a non-disputed market |

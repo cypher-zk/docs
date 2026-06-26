@@ -1,0 +1,190 @@
+---
+title: "Configure the @cypher-zk/sdk for Your Project"
+sidebarTitle: "SDK Setup"
+description: "Install @cypher-zk/sdk, create a CypherClient with the right options, and configure Buffer polyfills for Vite or Next.js browser bundlers."
+---
+
+The `@cypher-zk/sdk` package gives you everything you need to interact with Cypher's prediction market program on Solana — from placing encrypted bets to claiming payouts. This page walks you through installing the SDK, wiring up a `CypherClient`, and resolving the bundler quirks you're most likely to encounter in a browser project.
+
+## Installation
+
+<Steps>
+
+### Install core dependencies
+
+Install the SDK alongside `@solana/web3.js` v1. The SDK is not compatible with `@solana/web3.js` v2 — pin the v1 range explicitly.
+
+```bash
+npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
+```
+
+<Warning>
+  **web3.js v2 is not supported.** If your project already has `@solana/web3.js` v2 installed, downgrade to `^1.95.4` before using the SDK. Mixing v1 and v2 in the same project causes runtime errors.
+</Warning>
+
+### Install optional subpath packages
+
+The SDK ships three importable subpaths:
+
+| Subpath | Use case |
+|---|---|
+| `@cypher-zk/sdk` | Core client, actions, and utilities — browser-safe and Node-safe |
+| `@cypher-zk/sdk/react` | React hooks built on TanStack Query v5 |
+| `@cypher-zk/sdk/node` | Reserved for future Cypher team admin tools — **never import in browser code** |
+
+For React apps, add the React peer dependencies:
+
+```bash
+npm install @tanstack/react-query @solana/wallet-adapter-react @solana/wallet-adapter-base
+```
+
+### Create a CypherClient
+
+Construction is synchronous — no RPC calls fire until you use the client. Pass a `Connection` from `@solana/web3.js` and a wallet that satisfies the `Wallet` interface (see [Wallet Integration](/configuration/wallet-integration)).
+
+```typescript
+import { Connection } from "@solana/web3.js";
+import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+
+const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+
+const client = new CypherClient({
+  connection,
+  wallet: keypairToWallet(myKeypair), // or a wallet-adapter instance
+  cluster: "devnet",
+  commitment: "confirmed",
+});
+```
+
+### Configure commitment and cluster
+
+Choose the right `cluster` and `commitment` for your environment:
+
+```typescript
+// Development — Solana devnet
+const devClient = new CypherClient({
+  connection: new Connection("https://api.devnet.solana.com"),
+  wallet,
+  cluster: "devnet",
+  commitment: "confirmed",
+});
+
+// Production — Solana mainnet
+const prodClient = new CypherClient({
+  connection: new Connection("https://api.mainnet-beta.solana.com"),
+  wallet,
+  cluster: "mainnet-beta",
+  commitment: "finalized",
+});
+```
+
+See [Devnet vs Mainnet](/configuration/network) for guidance on choosing between environments.
+
+### Add a Buffer polyfill (browser only)
+
+The SDK uses the Node.js `Buffer` API internally. Browser bundlers don't include this by default, so you need a polyfill. Follow the instructions for your bundler below.
+
+</Steps>
+
+## CypherClient constructor options
+
+All options passed to `new CypherClient({...})`:
+
+| Option | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `connection` | `Connection` | ✅ | — | A `@solana/web3.js` `Connection` instance pointing to your RPC endpoint |
+| `wallet` | `Wallet` | ✅ | — | Any object satisfying the `Wallet` interface — wallet adapter, keypair wrapper, or read-only wallet |
+| `cluster` | `'devnet' \| 'mainnet-beta'` | — | `'devnet'` | Target cluster — controls Arcium endpoint and expected mint |
+| `commitment` | `Commitment` | — | `'confirmed'` | Transaction confirmation level used by the internal Anchor provider |
+| `programId` | `PublicKey` | — | Built-in program address | Override the on-chain program address (useful for local testing with a custom deployment) |
+| `confirmOptions` | `ConfirmOptions` | — | — | Additional options forwarded to the Anchor provider's `sendAndConfirm` calls |
+
+<Tip>
+  For most apps, you only need `connection`, `wallet`, and `cluster`. The defaults for `commitment` and `confirmOptions` are suitable for production use.
+</Tip>
+
+## Buffer polyfill setup
+
+### Vite
+
+Install the polyfill plugin and add it to your Vite config:
+
+```bash
+npm install -D vite-plugin-node-polyfills
+```
+
+```typescript
+// vite.config.ts
+import { defineConfig } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
+
+export default defineConfig({
+  plugins: [nodePolyfills()],
+});
+```
+
+### Next.js (Webpack)
+
+No extra packages required — configure the Webpack fallback in `next.config.js`:
+
+```javascript
+// next.config.js
+module.exports = {
+  webpack: (config) => {
+    config.resolve.fallback = { buffer: require.resolve("buffer/") };
+    return config;
+  },
+};
+```
+
+<Note>
+  If you also see errors about `crypto`, `fs`, or `stream` in Next.js, you can disable those modules alongside `buffer`:
+
+  ```javascript
+  config.resolve.fallback = {
+    buffer: require.resolve("buffer/"),
+    crypto: false,
+    fs: false,
+    stream: false,
+  };
+  ```
+</Note>
+
+## React integration
+
+Wrap your app in `CypherProvider` to make the client available to all child components via the `useCypherClient` hook:
+
+```tsx
+// app/providers.tsx
+import { CypherProvider } from "@cypher-zk/sdk/react";
+import { CypherClient } from "@cypher-zk/sdk";
+import { Connection } from "@solana/web3.js";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+function CypherProviderWrapper({ children }: { children: React.ReactNode }) {
+  const wallet = useWallet();
+  const connection = new Connection("https://api.devnet.solana.com");
+
+  const client = new CypherClient({
+    connection,
+    wallet: wallet as never,
+    cluster: "devnet",
+  });
+
+  return <CypherProvider client={client}>{children}</CypherProvider>;
+}
+```
+
+```tsx
+// Any child component
+import { useCypherClient, useMarkets } from "@cypher-zk/sdk/react";
+
+function MarketList() {
+  const { data: markets } = useMarkets({});
+  // ...
+}
+```
+
+<Warning>
+  `useCypherClient()` throws if the component renders outside a `<CypherProvider>`. Move the provider higher in your component tree if you see the error `useCypherClient must be used within a <CypherProvider>`.
+</Warning>

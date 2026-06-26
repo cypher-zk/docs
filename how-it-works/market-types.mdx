@@ -1,0 +1,157 @@
+---
+title: "Prediction Market Types: YesNo, Multi, and Accuracy"
+sidebarTitle: "Market Types"
+description: "Cypher supports three prediction market types: binary YesNo, MultiOutcome with up to 4 options, and Accuracy markets for exact-value predictions."
+---
+
+Choosing the right market type shapes everything about how participants bet, how payouts are calculated, and how the oracle resolves the outcome. Cypher offers three distinct market structures — each designed for a different class of prediction. Binary questions ("Will X happen?") fit YesNo markets. Questions with a small set of named outcomes fit MultiOutcome. Questions that resolve to a specific number ("What will the BTC price be?") fit Accuracy markets, where closeness to the answer matters more than picking a winner outright.
+
+<Tabs>
+  <Tab title="YesNo">
+    ## YesNo markets
+
+    A YesNo market poses a binary question — the outcome is either **YES** or **NO**. Participants pick one side and stake any amount of USDC above the minimum. The total pool flows to the winning side after fees.
+
+    ### How outcomes work
+
+    The oracle (Pyth price feed or the market creator) posts a `ResolvedValue::YesNo(bool)` — `true` for YES, `false` for NO. After the challenge window closes, the Arcium MPC circuit evaluates all encrypted positions, determines which side each participant chose, and writes individual payouts.
+
+    **Payout formula:**
+
+    ```
+    payout = your_net_stake + (your_net_stake / winner_pool_net) × loser_pool_net
+    ```
+
+    Your net stake is your gross stake minus the protocol and LP fees deducted at settlement.
+
+    ### Stake model
+
+    - **Variable stakes** — you choose how much to stake, from the minimum up to any amount
+    - **Minimum stake:** $0.10 USDC (`MIN_STAKE = 100_000` in raw units with 6 decimals)
+    - Fees are applied to the total pool at settlement, not at bet time
+
+    ### Pool capacity
+
+    Each side (YES and NO) is backed by a separate pool. Each pool holds a **maximum of 8 positions**. Once a pool reaches capacity, no further bets are accepted for that side. This limit is enforced by the on-chain program and mirrors the fixed array size in the Arcium settlement circuit.
+
+    ### Oracle support
+
+    | Oracle | How it works |
+    |---|---|
+    | **Pyth** | Trustless price feed; outcome posted automatically by the feed |
+    | **CreatorResolved** | Market creator posts the result; requires a $10 USDC bond |
+
+    <Note>
+      Pool capacity is 8 positions **per side** — so a YesNo market can accommodate up to 16 total positions (8 YES + 8 NO). Plan your market accordingly if you expect high participation.
+    </Note>
+  </Tab>
+
+  <Tab title="MultiOutcome">
+    ## MultiOutcome markets
+
+    A MultiOutcome market offers between **2 and 4 named outcomes**. Participants pick exactly one outcome and stake USDC. All stakes on losing outcomes flow to the winning outcome's pool (minus fees).
+
+    ### How outcomes work
+
+    Outcome labels are embedded directly in the on-chain question string using a `[Label A|Label B|Label C]` suffix. The SDK parses this suffix to display clean question text and bet buttons separately.
+
+    ```ts
+    import { parseEmbeddedOptions, getMarketOptionLabels } from "@cypher-zk/sdk";
+
+    // Raw question stored on-chain:
+    // "Who wins the 2025 F1 championship? [Verstappen|Hamilton|Norris]"
+
+    const { displayQuestion, optionLabels } = parseEmbeddedOptions(rawQuestion);
+    // displayQuestion: "Who wins the 2025 F1 championship?"
+    // optionLabels:    ["Verstappen", "Hamilton", "Norris"]
+
+    // Or use getMarketOptionLabels for canonical labels (handles YesNo fallback too):
+    const labels = getMarketOptionLabels(market, rawQuestion);
+    // ["Verstappen", "Hamilton", "Norris"]
+    ```
+
+    <Warning>
+      Always pass the **raw question** (with the `[…]` suffix intact) to `getMarketOptionLabels`. Pass only `displayQuestion` to your UI rendering layer. Stripping the suffix before passing to `getMarketOptionLabels` will fall back to generic "Outcome 1, Outcome 2, …" labels.
+    </Warning>
+
+    The oracle posts a `ResolvedValue::Outcome(u8)` — the zero-based index of the winning outcome. The MPC circuit then evaluates all encrypted positions and routes the loser pools to winning participants.
+
+    **Payout formula (same as YesNo, applied to the winning outcome pool):**
+
+    ```
+    payout = your_net_stake + (your_net_stake / winner_pool_net) × total_loser_pools_net
+    ```
+
+    ### Stake model
+
+    - **Variable stakes** — same as YesNo
+    - **Minimum stake:** $0.10 USDC
+    - No fee difference from YesNo: protocol fee (0.5%) + LP fee (1.5%) on the total pool
+
+    ### Pool capacity
+
+    Each outcome has its own pool with a **maximum of 8 positions**. A market with 3 outcomes can hold up to 24 total positions (8 per outcome).
+
+    ### Oracle support
+
+    Both **Pyth** and **CreatorResolved** are supported, identical to YesNo markets.
+  </Tab>
+
+  <Tab title="Accuracy">
+    ## Accuracy markets
+
+    Accuracy markets ask participants to predict an **exact numeric value** — for example, the BTC/USD price at a specific time, or a stock's closing price. Instead of picking a winner, participants are ranked by how close their prediction is to the actual answer. Closer predictions earn a larger share of the loser pool.
+
+    ### How outcomes work
+
+    The oracle posts a `ResolvedValue::Numeric(u64)` — the real-world answer scaled by 1000 (e.g. $152.50 → `152_500`). The Arcium MPC circuit computes the absolute error for each encrypted prediction and assigns payout weights using a proximity curve:
+
+    ```
+    weight = (1 / (1 + error / median_error)) ^ 6
+    ```
+
+    Participants with errors below the median earn a larger share; those above earn less. Every participant receives their original stake back plus a weighted share of the loser pool (after the platform fee).
+
+    ### Stake model
+
+    Accuracy markets use **fixed stake tiers** — you choose which tier to enter, and the stake is exactly that amount:
+
+    | Tier | Stake | SDK Constant |
+    |---|---|---|
+    | Micro | **$1 USDC** | `MICRO_BET_SIZE = 1_000_000` |
+    | Standard | **$10 USDC** | `STANDARD_BET_SIZE = 10_000_000` |
+    | Whale | **$100 USDC** | `WHALE_BET_SIZE = 100_000_000` |
+
+    Each tier is a separate on-chain market with its own pool. Entering a $1 tier and a $10 tier for the same question counts as two independent positions.
+
+    ### Pool capacity
+
+    Each tier pool holds a **maximum of 4 positions**. The Accuracy settlement circuit uses a fixed 4-slot array. An Accuracy market group therefore supports up to 12 total positions across all three tiers.
+
+    ### Fee model
+
+    Accuracy markets have **no LP fee**. Instead, a **20% platform fee** is taken from the loser pool only — not the total staked. Winners always receive their full stake back plus their share of the net loser pool.
+
+    ### Oracle support
+
+    Both **Pyth** and **CreatorResolved** are supported.
+
+    <Tip>
+      Accuracy markets reward research and precision rather than directional bias. If you have a well-founded quantitative estimate, an Accuracy market often offers better expected value than a binary market on the same underlying question.
+    </Tip>
+  </Tab>
+</Tabs>
+
+## Market type comparison
+
+| | **YesNo** | **MultiOutcome** | **Accuracy** |
+|---|---|---|---|
+| **Outcomes** | 2 (YES / NO) | 2–4 named options | Numeric value |
+| **Minimum stake** | $0.10 USDC | $0.10 USDC | $1 / $10 / $100 USDC (fixed tiers) |
+| **Stake model** | Variable | Variable | Fixed per tier |
+| **Pool capacity** | 8 per side | 8 per outcome | 4 per tier |
+| **Protocol fee** | 0.5% of total pool | 0.5% of total pool | 20% of loser pool |
+| **LP fee** | 1.5% of total pool | 1.5% of total pool | None |
+| **Pyth oracle** | ✓ | ✓ | ✓ |
+| **Creator-resolved** | ✓ | ✓ | ✓ |
+| **Winner determined by** | Correct side | Correct outcome | Proximity to answer |

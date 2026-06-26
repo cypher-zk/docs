@@ -1,47 +1,164 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Cypher Prediction Markets"
+sidebarTitle: "Quickstart"
+description: "Install @cypher-zk/sdk, connect your Solana wallet, and place your first encrypted prediction in under 5 minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+This guide walks you through installing the Cypher SDK, connecting to Solana, fetching available markets, and placing your first encrypted bet. By the end you'll have a working TypeScript snippet you can drop into any Solana wallet-adapter app.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Install the SDK">
+    Install `@cypher-zk/sdk` alongside Solana's web3.js library. Cypher requires **web3.js v1** — do not install `@solana/web3.js@latest`, which is a completely incompatible v2 rewrite.
 
     ```bash
-    npm install your-package
+    npm install @cypher-zk/sdk @solana/web3.js
+    ```
+
+    If you're building a React app, no extra packages are needed — the React hooks ship inside the same package at the `@cypher-zk/sdk/react` subpath.
+
+    <Tip>
+      Pin `@solana/web3.js` to `^1.95.4` in your `package.json` to prevent accidental upgrades to v2.
+    </Tip>
+  </Step>
+
+  <Step title="Initialize CypherClient">
+    Create a `CypherClient` by passing your RPC `Connection` and a wallet adapter. The constructor is **synchronous** — no `await` needed, and no RPC call fires at this point.
+
+    <Tabs>
+      <Tab title="React (wallet adapter)">
+        ```typescript
+        import { CypherClient } from "@cypher-zk/sdk";
+        import { useWallet, useConnection } from "@solana/wallet-adapter-react";
+
+        function useClient() {
+          const { connection } = useConnection();
+          const wallet = useWallet();
+
+          // Wallet must be connected before constructing the client
+          if (!wallet.connected || !wallet.publicKey) return null;
+
+          return new CypherClient({
+            connection,
+            wallet,          // AnchorWallet from @solana/wallet-adapter-react
+            cluster: "devnet",
+            commitment: "confirmed",
+          });
+        }
+        ```
+      </Tab>
+      <Tab title="Node.js (keypair)">
+        ```typescript
+        import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+        import { Connection, Keypair } from "@solana/web3.js";
+        import bs58 from "bs58";
+
+        const keypair = Keypair.fromSecretKey(
+          bs58.decode(process.env.WALLET_PRIVATE_KEY!)
+        );
+
+        const client = new CypherClient({
+          connection: new Connection("https://api.devnet.solana.com", "confirmed"),
+          wallet: keypairToWallet(keypair),
+          cluster: "devnet",
+        });
+        ```
+      </Tab>
+    </Tabs>
+
+    The client exposes namespaced methods: `client.markets`, `client.positions`, `client.actions`, `client.events`, and more.
+  </Step>
+
+  <Step title="Fetch available markets">
+    Use `client.markets.all()` to load every market, or narrow by state to show only markets currently accepting bets. Questions are stored in a separate on-chain account — use `fetchMarketQuestions` to batch-fetch them.
+
+    ```typescript
+    import { fetchMarketQuestions, marketPhase, MarketState } from "@cypher-zk/sdk";
+
+    // Fetch all markets
+    const markets = await client.markets.all();
+
+    // Batch-fetch question text for each market
+    const questionMap = await fetchMarketQuestions(client, markets.map((m) => m.publicKey));
+
+    for (const { publicKey, account } of markets) {
+      const pda = publicKey.toBase58();
+      const rawQuestion =
+        questionMap.get(pda) ||
+        account.inlineQuestion ||
+        `Market #${account.marketId}`;
+
+      const phase = marketPhase(account);
+      console.log(`[${phase}] ${rawQuestion}`);
+    }
+    ```
+
+    <Tip>
+      Filter to open markets with `client.markets.byState(MarketState.Active)` to avoid loading closed or resolved markets you can't bet on.
+    </Tip>
+  </Step>
+
+  <Step title="Place an encrypted bet">
+    Call `client.actions.placeBet` with the market ID, your chosen side, and a stake amount in USDC micro-units (6 decimals, so `5_000_000n` = $5). The SDK encrypts your side client-side, submits the transaction, and waits for the Arcium MPC callback — the full round trip takes roughly 8–30 seconds.
+
+    Use the optional `onProgress` callback to update your UI during each stage.
+
+    ```typescript
+    import { marketPhase } from "@cypher-zk/sdk";
+
+    const market = markets[0];
+    const phase = marketPhase(market.account);
+
+    if (phase !== "betting") {
+      throw new Error(`Market is not open for betting (phase: ${phase})`);
+    }
+
+    const result = await client.actions.placeBet(
+      {
+        marketId: market.account.marketId,
+        side: 1,                   // 1 = YES (or the outcome index for MultiOutcome)
+        betAmountUsdc: 5_000_000n, // $5 USDC
+      },
+      {
+        onProgress({ stage, message }) {
+          // stages: "validating" → "fetching-state" → "encrypting"
+          //         → "submitting" → "awaiting-callback" → "refetching" → "done"
+          console.log(`[${stage}] ${message ?? ""}`);
+        },
+      }
+    );
+
+    console.log("Transaction:", result.sig);
+    console.log("Position PDA:", result.position.publicKey.toBase58());
     ```
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+  <Step title="Persist the user keypair">
+    `placeBet` returns a `userKeypair` — the x25519 key pair used to encrypt your prediction. **You must save `userKeypair.privateKey`** immediately after the call returns. There is no on-chain recovery path; without it, the user can never decrypt their position or claim their payout.
 
-    ```bash
-    your-cli start
+    ```typescript
+    const { sig, userKeypair, position } = await client.actions.placeBet({ ... });
+
+    const marketId = position.account.market.toBase58();
+    const betIndex = position.account.betIndex.toString();
+
+    // Key by (market, betIndex) — a wallet can hold multiple positions per market
+    const secretKey = `cypher:secret:${marketId}:${betIndex}`;
+    localStorage.setItem(secretKey, Buffer.from(userKeypair.privateKey).toString("hex"));
     ```
+
+    <Warning>
+      **Never skip this step.** If `userKeypair.privateKey` is lost, the user's position exists on-chain but their payout can never be claimed. Store it in `localStorage`, a database, or any persistent store you control — but store it immediately, before any navigation or page reload can occur.
+    </Warning>
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## Next steps
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Core Concepts" icon="lightbulb" href="/core-concepts">
+    Understand markets, pools, positions, and the full lifecycle from betting through settlement.
+  </Card>
+  <Card title="SDK Reference" icon="code" href="/sdk/overview">
+    Full API docs for every action, hook, fetcher, and event in `@cypher-zk/sdk`.
+  </Card>
+</CardGroup>

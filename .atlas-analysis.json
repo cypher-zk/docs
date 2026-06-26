@@ -1,0 +1,124 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Cypher",
+  "projectDescription": "Cypher is a privacy-preserving prediction market protocol on Solana that uses Arcium MPC to keep user predictions fully encrypted on-chain until settlement.",
+  "theme": "luma",
+  "primaryColor": "#6d45fc",
+  "lightColor": "#b49cfc",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "core-concepts"
+            ]
+          },
+          {
+            "group": "How It Works",
+            "pages": [
+              "how-it-works/privacy-model",
+              "how-it-works/market-types",
+              "how-it-works/lifecycle",
+              "how-it-works/fees"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/place-a-bet",
+              "guides/create-a-market",
+              "guides/claim-payout",
+              "guides/dispute-resolution",
+              "guides/react-integration"
+            ]
+          },
+          {
+            "group": "Configuration",
+            "pages": [
+              "configuration/sdk-setup",
+              "configuration/wallet-integration",
+              "configuration/network"
+            ]
+          },
+          {
+            "group": "Troubleshooting",
+            "pages": [
+              "troubleshooting/common-errors",
+              "troubleshooting/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "SDK Reference",
+        "groups": [
+          {
+            "group": "Client",
+            "pages": [
+              "sdk/overview",
+              "sdk/cypher-client",
+              "sdk/react-hooks"
+            ]
+          },
+          {
+            "group": "Actions",
+            "pages": [
+              "sdk/actions/markets",
+              "sdk/actions/bets",
+              "sdk/actions/resolution",
+              "sdk/actions/claims"
+            ]
+          },
+          {
+            "group": "Utilities",
+            "pages": [
+              "sdk/utilities/market-helpers",
+              "sdk/utilities/encryption",
+              "sdk/utilities/events"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Encrypted on-chain predictions — bet choices are hidden until settlement via Arcium MPC",
+    "Three market types: YesNo, MultiOutcome (2–4 options), and Accuracy (tiered stake)",
+    "Challenge window for disputed resolutions with admin override",
+    "React hooks for easy frontend integration (useMarket, usePlaceBet, etc.)",
+    "Client-side x25519 + RescueCipher encryption for bet privacy",
+    "Multi-bet support per user per market (v0.8.0+)",
+    "Permissionless market locking and settlement queuing",
+    "Pyth oracle and creator-resolved oracle types",
+    "On-chain USDC payments with configurable LP and protocol fees"
+  ],
+  "publicApiSurface": [
+    "new CypherClient({ connection, wallet, cluster?, commitment?, programId? })",
+    "client.actions.placeBet(params) → { sig, userKeypair }",
+    "client.actions.createMarket(params)",
+    "client.actions.createMarketMulti(params)",
+    "client.actions.resolveMarket(params)",
+    "client.actions.claimPayout(params)",
+    "client.actions.claimRefund(params)",
+    "client.actions.flagResolution(params)",
+    "client.actions.finalizeResolution(params)",
+    "client.actions.cancelMarket(params)",
+    "client.actions.withdrawCreatorFunds(params)",
+    "useMarket(id), useMarkets({creator?, state?})",
+    "useUserPositions(user), usePosition(market, user, betIndex?)",
+    "usePlaceBet(), useCreateMarket(), useResolveMarket()",
+    "useClaimPayout(), useClaimRefund(), useFlagResolution()",
+    "marketPhase(market) → phase string",
+    "encryptBetInput(), decryptBetInput()",
+    "parseCypherError(err)",
+    "parseEmbeddedOptions(question)",
+    "computeFees(amount, rates)",
+    "fetchMarketQuestions(client, markets)"
+  ]
+}

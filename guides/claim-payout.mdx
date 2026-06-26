@@ -1,0 +1,220 @@
+---
+title: "Claim Your Winnings or Refund on Cypher"
+sidebarTitle: "Claim Payout"
+description: "Check your market's phase, then claim your USDC winnings after a correct prediction or reclaim your stake if a market expired without resolution."
+---
+
+After a Cypher market resolves, winners can claim their USDC payout and bettors on unresolved markets can reclaim their stake. The exact action you call depends on the market's current phase — calling the wrong one will revert on-chain. This guide shows you how to read the phase, choose the right claim path, and execute the transaction.
+
+## How the claim flow works
+
+Cypher uses Arcium MPC to compute payouts privately. When a resolver posts an outcome, the market enters a **challenge window** (`pendingResolution`) before transitioning to `claimable`. You must wait for finalization before claims open.
+
+The full phase sequence is:
+
+```
+betting → awaitingResolve → pendingResolution → awaitingFinalize → claimable
+                                                       ↓ (if disputed)
+                                                    disputed → (admin override) → claimable
+```
+
+If the resolver misses their deadline, the market becomes `refundable` instead — see the [refund path](#refund-path) below.
+
+---
+
+## Steps
+
+<Steps>
+
+### Check the market phase
+
+Always gate your claim call behind `marketPhase()`. It returns a string literal that tells you exactly what action is available right now.
+
+```typescript
+import { marketPhase } from '@cypher-zk/sdk';
+
+const market = await client.markets.fetch(marketId);
+const phase = marketPhase(market);
+
+console.log('Current phase:', phase);
+// 'claimable'  → call claimPayout
+// 'refundable' → call claimRefund
+// 'pendingResolution' | 'awaitingFinalize' | 'disputed' → not yet — wait for finalization
+```
+
+<Warning>
+  Never call `claimPayout` when `marketPhase !== 'claimable'`. The SDK
+  pre-flight check and the on-chain contract will both reject it, but you'll
+  still pay transaction fees. Always check the phase first.
+</Warning>
+
+### Ensure the market is finalized
+
+If the phase is `awaitingFinalize`, anyone can push the market to `claimable` by calling `finalizeResolution`. This is a permissionless, low-cost transaction.
+
+```typescript
+if (phase === 'awaitingFinalize') {
+  await client.actions.finalizeResolution({ market: marketPubkey });
+  // Phase is now 'claimable'
+}
+```
+
+If the phase is still `pendingResolution`, the challenge window hasn't elapsed yet. Check back after `market.challengeDeadline`. See the [Dispute Resolution guide](/guides/dispute-resolution) for details on the challenge window.
+
+### Claim your payout
+
+Once the phase is `claimable`, call `claimPayout`. The MPC circuit decrypts your encrypted bet and computes your share of the winning pool.
+
+```typescript
+import { marketPhase } from '@cypher-zk/sdk';
+
+const market = await client.markets.fetch(marketId);
+
+if (marketPhase(market) === 'claimable') {
+  const result = await client.actions.claimPayout({
+    market: marketPubkey,
+    onProgress: (event) => console.log('[claim]', event.stage),
+  });
+  console.log('Claimed! tx:', result.signature);
+}
+```
+
+<Warning>
+  To decrypt your bet during the payout computation, Arcium needs the
+  x25519 private key you saved when placing your bet. If you lost
+  `userKeypair.privateKey`, the MPC circuit will still run — but will
+  compute a payout of zero and mark your position as claimed without
+  transferring any funds. Always save the key at bet time as described in
+  the [Place a Bet guide](/guides/place-a-bet).
+</Warning>
+
+### Refund path
+
+If the market resolver missed their deadline, the market enters the `refundable` phase. Use `claimRefund` instead of `claimPayout` — the contract returns your original stake (minus any protocol fee).
+
+```typescript
+if (marketPhase(market) === 'refundable') {
+  const result = await client.actions.claimRefund({
+    market: marketPubkey,
+    onProgress: (event) => console.log('[refund]', event.stage),
+  });
+  console.log('Refunded! tx:', result.signature);
+}
+```
+
+</Steps>
+
+---
+
+## Handling multiple positions
+
+A single wallet can hold multiple positions on the same market (one per `betIndex`). Query all unclaimed positions and process them individually:
+
+```typescript
+import { fetchUserPositions, marketPda, marketPhase } from '@cypher-zk/sdk';
+
+const allPositions = await fetchUserPositions(client, wallet.publicKey);
+const targetPda    = marketPda(marketId)[0];
+
+const unclaimed = allPositions.filter(
+  ({ account }) => account.market.equals(targetPda) && !account.claimed,
+);
+
+const market = await client.markets.fetch(marketId);
+const phase  = marketPhase(market);
+
+for (const { account } of unclaimed) {
+  if (phase === 'claimable') {
+    await client.actions.claimPayout({ market: targetPda });
+  } else if (phase === 'refundable') {
+    await client.actions.claimRefund({ market: targetPda });
+  }
+}
+```
+
+---
+
+## React example
+
+Using the `useClaimPayout` and `useClaimRefund` mutation hooks:
+
+```typescript
+import {
+  useClaimPayout,
+  useClaimRefund,
+  useMarket,
+  useUserPositions,
+} from '@cypher-zk/sdk/react';
+import { marketPhase, marketPda } from '@cypher-zk/sdk';
+import { useWallet } from '@solana/wallet-adapter-react';
+
+function ClaimCard({ marketId }: { marketId: bigint }) {
+  const wallet      = useWallet();
+  const { data: market }     = useMarket(marketId);
+  const { data: positions }  = useUserPositions(wallet.publicKey ?? undefined);
+  const claimPayout = useClaimPayout();
+  const claimRefund = useClaimRefund();
+
+  if (!market) return null;
+
+  const phase    = marketPhase(market);
+  const targetPda = marketPda(marketId)[0];
+  const unclaimed = (positions ?? []).filter(
+    ({ account }) => account.market.equals(targetPda) && !account.claimed,
+  );
+
+  if (phase !== 'claimable' && phase !== 'refundable') {
+    return <p>Claims not yet open (phase: {phase}).</p>;
+  }
+  if (unclaimed.length === 0) {
+    return <p>Nothing to claim.</p>;
+  }
+
+  return (
+    <ul>
+      {unclaimed.map(({ account }) => (
+        <li key={account.betIndex.toString()}>
+          <button
+            onClick={() => {
+              const mutation = phase === 'claimable' ? claimPayout : claimRefund;
+              mutation.mutate({
+                payer:    wallet.publicKey!,
+                user:     wallet.publicKey!,
+                marketId,
+                betIndex: account.betIndex,
+              });
+            }}
+          >
+            {phase === 'claimable'
+              ? `Claim payout (bet #${account.betIndex})`
+              : `Claim refund (bet #${account.betIndex})`}
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+## All market phases at a glance
+
+| Phase | Claim action available | Description |
+|---|---|---|
+| `betting` | — | Market is open for new bets |
+| `awaitingResolve` | — | Betting closed; waiting for resolver |
+| `pendingResolution` | — | Outcome posted; challenge window active |
+| `awaitingFinalize` | `finalizeResolution` (anyone) | Window elapsed; call finalize to open claims |
+| `disputed` | — | Flagged outcome; admin must override |
+| `claimable` | `claimPayout` | Call this to receive your winnings |
+| `refundable` | `claimRefund` | Resolver missed deadline; stake returned |
+| `expired` | — | All deadlines passed; admin recovers remainder |
+| `cancelled` | — | Market cancelled before any bets |
+
+<Note>
+  The `claimPayout` action triggers an Arcium MPC computation. Expect the
+  `awaiting-callback` stage to take around 10 seconds. If you're on devnet,
+  allow up to 30 seconds and consider passing `timeoutMs: 300_000` if you see
+  frequent timeouts.
+</Note>

@@ -1,0 +1,166 @@
+---
+title: "Resolution Actions: Resolve and Dispute Markets"
+sidebarTitle: "Resolution"
+description: "Resolve Cypher markets via Arcium MPC, flag disputed outcomes during the challenge window, finalize undisputed resolutions, and admin-override disputes."
+---
+
+Cypher's resolution flow is a multi-step process designed to give the community a chance to challenge incorrect outcomes before payouts are unlocked. Calling `resolveMarket` does **not** immediately open the market for claims — it triggers an Arcium MPC computation that transitions the market to `PendingResolution`, starts a 24–48 hour challenge window, and only after that window elapses (undisputed) can anyone call `finalizeResolution` to open claims.
+
+<Note>
+  After a successful `resolveMarket` call the market enters the `pendingResolution` phase, **not** `claimable`. The `claimPayout` action is only available after `finalizeResolution` (or `adminOverrideResolution`) completes and the market transitions to `Resolved`.
+</Note>
+
+---
+
+## resolveMarket
+
+Submits the winning outcome to the Arcium MPC cluster, which verifies and writes it on-chain. Only the market's designated resolver (the creator for `oracleType: "creator"` markets, or the Pyth oracle for `oracleType: "pyth"` markets) may call this instruction.
+
+```typescript
+const { sig } = await client.actions.resolveMarket({
+  market: marketId,
+  resolvedOutcome: 1, // 1 = YES for YesNo; winning outcome index for MultiOutcome
+});
+console.log("Resolution submitted:", sig);
+// Market is now in 'pendingResolution' phase — challenge window has started
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to resolve. The market must be in the `"awaitingResolve"` phase (active, past `lockTimestamp`, before `resolutionDeadline`).
+</ParamField>
+
+<ParamField path="resolvedOutcome" type="number" required>
+  The winning outcome index. For YesNo: `0` = NO, `1` = YES. For MultiOutcome: the zero-based index of the winning option.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature for the `resolveMarket` instruction. The Arcium MPC callback runs asynchronously — wait for the `MarketResolvedEvent` or poll `marketPhase(market)` until it returns `"pendingResolution"`.
+</ResponseField>
+
+---
+
+## Challenge window flow
+
+Once a market is in `pendingResolution`, the following phase transitions are possible:
+
+```
+resolveMarket()
+    │
+    ▼
+pendingResolution  ──── anyone calls flagResolution() ──► disputed
+    │                                                          │
+    │  challenge window elapses (24–48h)                       │
+    ▼                                                          ▼
+awaitingFinalize                                     adminOverrideResolution()
+    │                                                          │
+    │  anyone calls finalizeResolution()                       │
+    ▼                                                          ▼
+claimable ◄────────────────────────────────────────────── claimable
+```
+
+---
+
+## flagResolution
+
+Flags an outcome as disputed during the challenge window. Anyone can call this — it does not require any special authority. A flagged market transitions to the `disputed` phase and can only be unblocked by an admin override.
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+const phase = marketPhase(market);
+
+if (phase !== "pendingResolution") {
+  throw new Error(`Cannot flag — market is in phase: ${phase}`);
+}
+
+const { sig } = await client.actions.flagResolution({
+  market: marketId,
+  reason: "Outcome reported as YES but price feed shows NO at close",
+});
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to flag. Must be in the `"pendingResolution"` phase (challenge window active, not yet disputed).
+</ParamField>
+
+<ParamField path="reason" type="string">
+  Optional free-text reason for the dispute, logged in transaction metadata.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature. After confirmation the market is `"disputed"` and only `adminOverrideResolution` can proceed.
+</ResponseField>
+
+---
+
+## finalizeResolution
+
+Finalises an undisputed resolution after the challenge window has elapsed. This is a **permissionless** instruction — anyone can call it, including a backend crank. No special authority or signing key is required.
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+
+if (marketPhase(market) !== "awaitingFinalize") {
+  throw new Error("Challenge window has not elapsed yet");
+}
+
+const { sig } = await client.actions.finalizeResolution({ market: marketId });
+// Market is now 'claimable' — payouts are open
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to finalise. Must be in `"awaitingFinalize"` phase (challenge window elapsed, not disputed).
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature. After confirmation the market transitions to `Resolved` and `claimPayout` becomes available.
+</ResponseField>
+
+---
+
+## adminOverrideResolution
+
+Re-resolves a disputed market with a corrected outcome. Only the Cypher protocol admin account may call this instruction. The payout ratio is recomputed from the plaintext pool balances against the new outcome.
+
+```typescript
+// Only callable by the Cypher admin wallet
+const { sig } = await client.actions.adminOverrideResolution({
+  market: marketId,
+  resolvedOutcome: 0, // corrected outcome — 0 = NO in this example
+});
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The disputed market PDA. Must be in the `"disputed"` phase.
+</ParamField>
+
+<ParamField path="resolvedOutcome" type="number" required>
+  The corrected winning outcome index.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature. After confirmation the market becomes `claimable` with the corrected payout ratio.
+</ResponseField>
+
+<Warning>
+  `adminOverrideResolution` is reserved exclusively for the Cypher protocol admin. Calling it from any other wallet will fail with an `Unauthorized` error on-chain.
+</Warning>

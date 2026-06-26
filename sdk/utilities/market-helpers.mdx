@@ -1,0 +1,345 @@
+---
+title: "Market Helper Utilities in @cypher-zk/sdk"
+sidebarTitle: "Market Helpers"
+description: "Pure utility functions for market phase detection, fee calculation, question parsing, outcome formatting, and cancel eligibility checks in @cypher-zk/sdk."
+---
+
+The `@cypher-zk/sdk` package exports a set of pure utility functions that let you derive UI state from on-chain data without additional RPC calls. Import them directly alongside your action calls — they are all synchronous and side-effect free.
+
+```typescript
+import {
+  marketPhase,
+  computeFees,
+  parseCypherError,
+  parseEmbeddedOptions,
+  getMarketOptionLabels,
+  formatOutcome,
+  marketCategoryName,
+  marketStateName,
+  marketTypeName,
+  cancelEligibility,
+  fetchMarketQuestions,
+} from "@cypher-zk/sdk";
+```
+
+---
+
+## Phase helpers
+
+### marketPhase
+
+Computes the current lifecycle phase of a market from its on-chain account fields. No RPC call is made — pass the already-fetched `Market` account.
+
+```typescript
+const market = await client.markets.fetchByPda(marketId);
+const phase = marketPhase(market);
+// e.g. "betting" | "awaitingResolve" | "pendingResolution" | "claimable" | ...
+```
+
+<ParamField path="market" type="Market" required>
+  A fetched `MarketAccount` (or any object satisfying `MarketDeadlineInputs`). All required fields are timestamps and state.
+</ParamField>
+
+<ParamField path="nowSec" type="bigint">
+  Optional override for the current time in Unix seconds. Defaults to `BigInt(Math.floor(Date.now() / 1000))`. Pass a fixed value in tests to simulate specific moments.
+</ParamField>
+
+**Returns** one of the following `MarketPhase` string literals:
+
+| Phase | When it applies | Available action |
+|---|---|---|
+| `"betting"` | Active + before `closeTime` | `placeBet` |
+| `"awaitingResolve"` | Active + before `resolutionDeadline` | `resolveMarket` (resolver only) |
+| `"pendingResolution"` | PendingResolution + inside challenge window | `flagResolution` (anyone) |
+| `"awaitingFinalize"` | PendingResolution + window elapsed, not disputed | `finalizeResolution` (anyone) |
+| `"disputed"` | PendingResolution + flagged | `adminOverrideResolution` (admin only) |
+| `"claimable"` | Resolved + before `claimDeadline` | `claimPayout` |
+| `"refundable"` | Active + past `resolutionDeadline`, before `refundDeadline` | `claimRefund` |
+| `"expired"` | All deadlines elapsed | `adminClaimRemaining` (Cypher team only) |
+| `"cancelled"` | State = Closed (no bets placed) | — |
+
+---
+
+## Fee helpers
+
+### computeFees
+
+Calculates the protocol fee, LP fee, and net amount for a given stake before submitting a bet. Mirrors the on-chain fee calculation exactly — use this to show users a fee breakdown without an RPC round-trip.
+
+```typescript
+import { computeFees } from "@cypher-zk/sdk";
+
+const globalState = await client.globalState.fetch();
+
+const breakdown = computeFees(5_000_000n, {
+  protocolFeeRateBps: globalState.protocolFeeRate,
+  lpFeeRateBps: globalState.lpFeeRate,
+});
+
+// breakdown.protocolFee  = 25_000  (0.5% of 5 USDC)
+// breakdown.lpFee        = 75_000  (1.5% of 5 USDC)
+// breakdown.netAmount    = 4_900_000
+console.log(`You bet $${Number(breakdown.netAmount) / 1_000_000} net`);
+```
+
+<ParamField path="amount" type="bigint" required>
+  Gross bet amount in USDC lamports (6 decimals).
+</ParamField>
+
+<ParamField path="rates" type="FeeRates" required>
+  Object with `protocolFeeRateBps` and `lpFeeRateBps`, both numbers in basis points. Fetch live values from `client.globalState.fetch()`.
+</ParamField>
+
+**Returns** a `FeeBreakdown`:
+
+<ResponseField name="amount" type="bigint">
+  The original gross amount passed in.
+</ResponseField>
+
+<ResponseField name="protocolFee" type="bigint">
+  Amount sent to the protocol treasury.
+</ResponseField>
+
+<ResponseField name="lpFee" type="bigint">
+  Amount credited to the market creator's LP position.
+</ResponseField>
+
+<ResponseField name="netAmount" type="bigint">
+  Amount actually entered into the betting pool (`amount - protocolFee - lpFee`).
+</ResponseField>
+
+---
+
+## Question & label helpers
+
+### parseEmbeddedOptions
+
+Strips the `[Label1|Label2|…]` suffix from a MultiOutcome question string. Always call this before rendering a question to avoid showing the bracket notation to users.
+
+```typescript
+import { parseEmbeddedOptions } from "@cypher-zk/sdk";
+
+const raw = "Who wins the 2026 World Cup? [Brazil|France|Germany]";
+const { displayQuestion, optionLabels } = parseEmbeddedOptions(raw);
+
+// displayQuestion: "Who wins the 2026 World Cup?"  ← render this
+// optionLabels:    ["Brazil", "France", "Germany"] ← use for bet buttons
+```
+
+<ParamField path="question" type="string" required>
+  The raw on-chain question string, including any `[…]` suffix.
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="displayQuestion" type="string">
+  The question text with the `[…]` suffix removed. Safe to render directly.
+</ResponseField>
+
+<ResponseField name="optionLabels" type="string[]">
+  Array of option label strings parsed from the suffix. Empty array if no suffix is present (YesNo markets).
+</ResponseField>
+
+---
+
+### getMarketOptionLabels
+
+Returns the canonical bet-button labels for any market type. Handles YesNo (returns `["NO", "YES"]`), MultiOutcome with an embedded suffix, and the fallback case where no suffix was provided.
+
+```typescript
+import { getMarketOptionLabels } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+// Fetch question from the MarketQuestion PDA (v3) or inlineQuestion (v1/v2)
+const questionMap = await fetchMarketQuestions(client, [market]);
+const rawQuestion = questionMap.get(marketId.toBase58()) ?? market.inlineQuestion;
+
+const labels = getMarketOptionLabels(market, rawQuestion);
+// YesNo:        ["NO", "YES"]
+// MultiOutcome: ["Brazil", "France", "Germany"]  (from [Brazil|France|Germany])
+// Fallback:     ["Outcome 1", "Outcome 2", "Outcome 3"]
+```
+
+<ParamField path="market" type="MarketAccount" required>
+  The fetched market account. The `marketType` field determines whether YesNo defaults or embedded labels are used.
+</ParamField>
+
+<ParamField path="rawQuestion" type="string" required>
+  The **raw** question string including the `[…]` suffix. Do not pass the `displayQuestion` stripped version here.
+</ParamField>
+
+**Returns** `string[]` — one label per outcome, in side-index order.
+
+---
+
+### formatOutcome
+
+Returns a human-readable string for the resolved outcome, or `null` if the market is not yet resolved.
+
+```typescript
+import { formatOutcome } from "@cypher-zk/sdk";
+
+const resolved = formatOutcome(market, rawQuestion);
+// YesNo resolved YES: "YES"
+// MultiOutcome resolved index 2: "Germany"
+// Not resolved: null
+```
+
+<ParamField path="market" type="MarketAccount" required>
+  The fetched market account. Uses `market.outcome` and `market.marketType`.
+</ParamField>
+
+<ParamField path="rawQuestion" type="string" required>
+  Raw question string including the `[…]` suffix for label extraction.
+</ParamField>
+
+**Returns** `string | null` — the outcome label, or `null` when unresolved.
+
+---
+
+### fetchMarketQuestions
+
+Batch-fetches question strings for an array of markets from their `MarketQuestion` PDAs (current v3 layout). Keys the result by market PDA base58 address.
+
+```typescript
+import { fetchMarketQuestions } from "@cypher-zk/sdk";
+
+const markets = await client.markets.all();
+const questionMap = await fetchMarketQuestions(client, markets.map(m => m.account));
+
+for (const { publicKey, account } of markets) {
+  // Always use this pattern — do NOT access market.question directly
+  const rawQuestion =
+    questionMap.get(publicKey.toBase58()) ||
+    account.inlineQuestion ||
+    `Market #${account.marketId}`;
+  console.log(rawQuestion);
+}
+```
+
+<Warning>
+  Do **not** read question text from `market.question` directly. Current v3 market accounts store `inlineQuestion = ""` and keep the question in a separate `MarketQuestion` PDA. Only v1/v2 legacy accounts (577 or 594 bytes) have a non-empty `inlineQuestion`. Always use `fetchMarketQuestions` and fall back to `account.inlineQuestion`.
+</Warning>
+
+<ParamField path="client" type="CypherClient" required>
+  An initialised `CypherClient` instance.
+</ParamField>
+
+<ParamField path="markets" type="Market[]" required>
+  Array of `MarketAccount` objects whose questions you want to fetch. The function batches all `getMultipleAccounts` calls into a single RPC request.
+</ParamField>
+
+**Returns** `Promise<Map<string, string>>` — a `Map` keyed by market PDA base58 string, values are raw question strings (including any `[…]` suffix).
+
+---
+
+## Display name helpers
+
+Use these functions instead of maintaining your own enum-to-string maps.
+
+### marketCategoryName
+
+```typescript
+marketCategoryName(MarketCategory.Crypto) // → "Crypto"
+marketCategoryName(MarketCategory.Sports) // → "Sports"
+marketCategoryName(99)                    // → "Unknown(99)"
+```
+
+### marketStateName
+
+```typescript
+marketStateName(MarketState.Active)            // → "Active"
+marketStateName(MarketState.PendingResolution) // → "PendingResolution"
+```
+
+### marketTypeName
+
+```typescript
+marketTypeName(MarketType.YesNo)       // → "YesNo"
+marketTypeName(MarketType.MultiOutcome) // → "MultiOutcome"
+```
+
+All three functions accept a `number` and fall back to `"Unknown(N)"` for values not in the enum, so they will never throw.
+
+---
+
+## Cancel eligibility
+
+### cancelEligibility
+
+Client-side pre-flight check for `cancelMarket`. Returns `{ ok: true, reason: null }` when the market is cancellable, or `{ ok: false, reason: string }` with a human-readable explanation.
+
+```typescript
+import { cancelEligibility } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+const { ok, reason } = cancelEligibility(market);
+
+if (!ok) {
+  // possible reason values:
+  // "1 bet(s) placed — cannot cancel"
+  // "state is Resolved (only Active markets can be cancelled)"
+  console.error("Cannot cancel:", reason);
+  return;
+}
+
+await client.actions.cancelMarket({ market: marketId });
+```
+
+<ParamField path="market" type="Pick<MarketAccount, 'state' | 'totalBetsCount'>" required>
+  A partial or full `MarketAccount`. Only `state` and `totalBetsCount` are read.
+</ParamField>
+
+**Returns:**
+
+<ResponseField name="ok" type="boolean">
+  `true` when the market can be cancelled.
+</ResponseField>
+
+<ResponseField name="reason" type="string | undefined">
+  Human-readable explanation when `ok` is `false`. Suitable for displaying directly in a tooltip or error banner.
+</ResponseField>
+
+---
+
+## Error parsing
+
+### parseCypherError
+
+Extracts a structured `ParsedCypherError` from any error thrown by SDK action calls. Handles `AnchorError`, `SendTransactionError` log parsing, and raw `Error` messages with `Error Number: NNNN` strings.
+
+```typescript
+import { parseCypherError } from "@cypher-zk/sdk";
+
+try {
+  await client.actions.placeBet({ market, side: 1, amount: 1_000_000 });
+} catch (err) {
+  const parsed = parseCypherError(err);
+  if (parsed) {
+    // parsed.code    → 6005  (numeric CypherErrorCode)
+    // parsed.name    → "BetTooSmall"
+    // parsed.msg     → "Bet amount is below the market minimum"
+    console.error(`${parsed.name}: ${parsed.msg}`);
+  } else {
+    console.error("Unknown error:", err);
+  }
+}
+```
+
+<ParamField path="err" type="unknown" required>
+  Any value caught in a `catch` block.
+</ParamField>
+
+**Returns** `ParsedCypherError | null`:
+
+<ResponseField name="code" type="number">
+  Numeric Cypher error code (6000–6044).
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  Human-readable error name matching the `CypherErrorName` union.
+</ResponseField>
+
+<ResponseField name="msg" type="string">
+  Full error message string from `CYPHER_ERROR_MESSAGES`.
+</ResponseField>

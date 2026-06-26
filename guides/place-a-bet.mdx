@@ -1,0 +1,249 @@
+---
+title: "How to Place an Encrypted Bet on Cypher"
+sidebarTitle: "Place a Bet"
+description: "Learn how to encrypt and submit a prediction on Cypher — from initializing the client to persisting the secret key needed to claim your winnings."
+---
+
+Placing a bet on Cypher isn't like a typical on-chain prediction market. Before your wager reaches Solana, the SDK encrypts your chosen side and stake using Arcium's multi-party computation network — meaning neither nodes nor observers can see how you bet until after the market resolves. This guide walks you through every step: connecting your wallet, fetching open markets, submitting an encrypted bet, and safely storing the keypair you'll need at claim time.
+
+## Prerequisites
+
+Install the SDK and its peer dependency:
+
+```bash
+npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
+```
+
+<Warning>
+  Install `@solana/web3.js` **v1** (e.g. `^1.95.4`). The SDK is not compatible
+  with v2. Running both versions simultaneously causes silent runtime errors.
+</Warning>
+
+If you're bundling for the browser with **Vite** or **Webpack**, add a Buffer polyfill:
+
+<CodeGroup>
+```typescript Vite (vite.config.ts)
+import { defineConfig } from 'vite';
+import { nodePolyfills } from 'vite-plugin-node-polyfills';
+
+export default defineConfig({
+  plugins: [nodePolyfills()],
+});
+```
+
+```typescript Webpack (webpack.config.js)
+module.exports = {
+  resolve: {
+    fallback: {
+      buffer: require.resolve('buffer/'),
+    },
+  },
+};
+```
+</CodeGroup>
+
+---
+
+## Steps
+
+<Steps>
+
+### Initialize the client
+
+Create a `CypherClient` instance with your RPC connection and wallet. The constructor is synchronous — no network calls happen until you invoke an action.
+
+```typescript
+import { CypherClient } from '@cypher-zk/sdk';
+import { Connection } from '@solana/web3.js';
+
+const client = new CypherClient({
+  connection: new Connection('https://api.devnet.solana.com', 'confirmed'),
+  wallet,          // any @solana/wallet-adapter wallet, or keypairToWallet(kp)
+  cluster: 'devnet',
+});
+```
+
+For React apps, wrap your tree in `<CypherProvider>` instead and read the client with `useCypherClient()`. See the [React Integration guide](/guides/react-integration) for the full provider setup.
+
+### Fetch available markets
+
+Retrieve open markets filtered to the `Active` state so you're only shown markets that still accept bets.
+
+```typescript
+import { fetchMarketsByState, fetchMarketQuestions, MarketState } from '@cypher-zk/sdk';
+
+const markets = await fetchMarketsByState(client, MarketState.Active);
+// Questions are stored in a separate PDA — always batch-fetch them
+const questions = await fetchMarketQuestions(client, markets);
+
+for (const { publicKey, account } of markets) {
+  const rawQuestion = questions.get(publicKey.toBase58())
+    ?? account.inlineQuestion
+    ?? `Market #${account.marketId}`;
+  console.log(rawQuestion, '→', publicKey.toBase58());
+}
+```
+
+<Warning>
+  Never read `market.question` directly — the field is always empty for
+  current (v3) markets. Always use `fetchMarketQuestions(client, markets)` with
+  the fallback chain shown above.
+</Warning>
+
+### Call `placeBet`
+
+Pass the market public key, your chosen side, and the amount in micro-USDC (6 decimal places). Use the `onProgress` callback to stream live status updates to your UI.
+
+```typescript
+import { PublicKey } from '@solana/web3.js';
+
+const marketPubkey = new PublicKey('YOUR_MARKET_ADDRESS');
+
+const result = await client.actions.placeBet({
+  market: marketPubkey,
+  side: 1,           // 1 = YES for YesNo markets; outcome index for MultiOutcome
+  amount: 5_000_000, // 5 USDC (multiply dollars × 1,000,000)
+  onProgress: (event) => {
+    console.log('[bet progress]', event.stage, event.message ?? '');
+  },
+});
+```
+
+For **MultiOutcome** markets, always derive the valid side indices from the market and question rather than hard-coding them:
+
+```typescript
+import { getMarketOptionLabels } from '@cypher-zk/sdk';
+
+const rawQuestion = questions.get(marketPubkey.toBase58()) ?? '';
+const labels = getMarketOptionLabels(market.account, rawQuestion);
+// labels = ['Brazil', 'France', 'Germany', 'Argentina'] for a multi-outcome market
+// side 0 = Brazil, side 1 = France, etc.
+```
+
+### Persist `userKeypair.privateKey`
+
+<Warning>
+  **This step is mandatory.** `result.userKeypair.privateKey` is the
+  x25519 secret key that proves your encrypted bet belongs to you. It is
+  generated ephemerally in the browser — Cypher has no copy. If you lose it,
+  you cannot claim your winnings. There is no recovery path.
+</Warning>
+
+Store the key immediately after the transaction confirms, keyed by both market address and `betIndex` (a single wallet can place multiple bets on the same market):
+
+```typescript
+// result is the return value of client.actions.placeBet()
+const { userKeypair, betIndex, signature } = result;
+
+localStorage.setItem(
+  `cypher-key-${marketPubkey.toBase58()}-${betIndex}`,
+  JSON.stringify(Array.from(userKeypair.privateKey)),
+);
+
+console.log('Bet confirmed:', signature, '| betIndex:', betIndex);
+```
+
+In production, prefer an encrypted store (e.g. the user's password-derived key encrypting `localStorage`) over plain `localStorage`.
+
+### Track progress stages
+
+The `onProgress` callback fires once per stage in this order:
+
+| Stage | Typical duration | What's happening |
+|---|---|---|
+| `validating` | ~10 ms | SDK checks market phase, bet size, wallet connection |
+| `fetching-state` | ~200 ms | Fetches global state and market account |
+| `encrypting` | ~50 ms | x25519 key exchange + Rescue cipher encryption |
+| `submitting` | 1–2 s | Transaction signed and sent to Solana |
+| `awaiting-callback` | ~10 s | Arcium MPC nodes compute and post the callback |
+| `refetching` | ~200 ms | Market and position accounts refreshed in cache |
+| `done` | — | `result` is ready |
+
+```typescript
+import type { ActionProgressEvent } from '@cypher-zk/sdk';
+
+function labelFor(event: ActionProgressEvent): string {
+  switch (event.stage) {
+    case 'validating':        return 'Validating…';
+    case 'fetching-state':    return 'Loading state…';
+    case 'encrypting':        return 'Encrypting your bet…';
+    case 'submitting':        return 'Submitting…';
+    case 'awaiting-callback': return 'Awaiting MPC nodes (~10s)…';
+    case 'refetching':        return 'Updating position…';
+    case 'done':              return 'Done!';
+  }
+}
+```
+
+</Steps>
+
+---
+
+## Decoding your position later
+
+After the market resolves, you can use the saved key to verify whether your encrypted bet was on the winning side — before spending the MPC computation fee on a guaranteed-zero payout claim.
+
+```typescript
+import {
+  decryptBetInput,
+  createCipher,
+  bigIntToLeBytes,
+  fetchMxePublicKey,
+} from '@cypher-zk/sdk';
+
+async function checkIfWinner(
+  client: CypherClient,
+  position: EncryptedPositionAccount,
+  marketOutcome: number,
+): Promise<boolean | null> {
+  const raw = localStorage.getItem(
+    `cypher-key-${position.market.toBase58()}-${position.betIndex}`,
+  );
+  if (!raw) return null; // key not found — cannot determine
+
+  const privateKey = new Uint8Array(JSON.parse(raw));
+  const mxePubkey  = await fetchMxePublicKey(client);
+  if (!mxePubkey) return null;
+
+  const cipher = createCipher(privateKey, mxePubkey);
+  const nonce  = bigIntToLeBytes(position.nonce, 16);
+  const { side } = decryptBetInput(position, cipher, nonce);
+
+  return side === marketOutcome;
+}
+```
+
+<Tip>
+  If `checkIfWinner` returns `false`, hide the Claim Payout button and show
+  "Your position did not win." If it returns `null` (key missing), show both
+  buttons and let the user decide.
+</Tip>
+
+---
+
+## Error handling
+
+Use `parseCypherError` to extract structured error information from any SDK rejection:
+
+```typescript
+import { parseCypherError } from '@cypher-zk/sdk';
+
+try {
+  await client.actions.placeBet({ ... });
+} catch (err) {
+  const parsed = parseCypherError(err);
+  if (parsed) {
+    console.error(`${parsed.name} (${parsed.code}): ${parsed.msg}`);
+    // e.g. "MarketNotActive (6000): Market is not accepting bets"
+  } else {
+    console.error((err as Error).message);
+  }
+}
+```
+
+| Error name | Cause | Recommended action |
+|---|---|---|
+| `MarketNotActive` | Market closed between render and submit | Refetch market, hide bet form |
+| `BetTooSmall` | Amount below `market.minBet` | Validate client-side before submitting |
+| `WrongMint` | User's token account is the wrong mint | Show "Please fund your USDC account" |
+| Computation timeout | Arcium cluster congestion | Retry; bump `timeoutMs: 300_000` |

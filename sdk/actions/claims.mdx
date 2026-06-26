@@ -1,0 +1,185 @@
+---
+title: "Claim Actions: Collect Payouts and Refunds"
+sidebarTitle: "Claims"
+description: "Claim winning payouts from resolved Cypher markets or retrieve refunds when a market expires without resolution, gated by market phase."
+---
+
+After a market resolves, winners call `claimPayout` to receive their proportional share of the losing-side pool. If a market never resolves before its `resolutionDeadline`, bettors call `claimRefund` to reclaim their full `netAmount`. Both actions invoke an Arcium MPC computation — the circuit decrypts your position on-chain and writes the result without ever revealing your chosen side to observers.
+
+<Warning>
+  Always check `marketPhase(market)` before calling either claim action. Submitting a claim in the wrong phase will fail on-chain and still cost the user transaction fees. Gate every claim button behind a phase check.
+</Warning>
+
+---
+
+## claimPayout
+
+Collects your winning payout from a resolved market. The market must be in the `"claimable"` phase (state `Resolved` and before `claimDeadline`).
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+const phase = marketPhase(market);
+
+if (phase !== "claimable") {
+  throw new Error(`Cannot claim payout — market is: ${phase}`);
+}
+
+const { sig } = await client.actions.claimPayout({ market: marketId });
+console.log("Payout claimed:", sig);
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to claim from. The connected wallet must have an unclaimed position on this market.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature. USDC is transferred to your wallet token account after the Arcium MPC callback confirms.
+</ResponseField>
+
+<Note>
+  Losing positions that call `claimPayout` receive a payout of zero USDC. The MPC circuit still runs, marks `position.claimed = true`, and the user pays the computation fee. To avoid this, decrypt your position client-side first and check whether your side matches `market.outcome` before presenting the claim button. See the [Encryption Utilities](/sdk/utilities/encryption) page for `decryptBetInput` usage.
+</Note>
+
+---
+
+## claimRefund
+
+Refunds your full `netAmount` (stake minus fees) when a market expires without resolution. The market must be in the `"refundable"` phase (active state, past `resolutionDeadline`, and before `refundDeadline`).
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+const market = await client.markets.fetchByPda(marketId);
+const phase = marketPhase(market);
+
+if (phase !== "refundable") {
+  throw new Error(`Cannot claim refund — market is: ${phase}`);
+}
+
+const { sig } = await client.actions.claimRefund({ market: marketId });
+console.log("Refund claimed:", sig);
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to refund from. The connected wallet must have an unclaimed position on this market.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature. Your `netAmount` is returned after the MPC callback runs.
+</ResponseField>
+
+---
+
+## Phase-gated claim pattern
+
+Use `marketPhase` to drive both UI state and call routing. The following pattern handles all possible phases and renders the correct action per position:
+
+```typescript
+import {
+  marketPhase,
+  type MarketPhase,
+  type EncryptedPositionAccount,
+} from "@cypher-zk/sdk";
+
+async function claimIfEligible(
+  client: CypherClient,
+  marketId: PublicKey,
+  position: EncryptedPositionAccount,
+) {
+  if (position.claimed) {
+    console.log("Position already claimed");
+    return;
+  }
+
+  const market = await client.markets.fetchByPda(marketId);
+  const phase = marketPhase(market);
+
+  switch (phase) {
+    case "claimable":
+      return client.actions.claimPayout({ market: marketId });
+
+    case "refundable":
+      return client.actions.claimRefund({ market: marketId });
+
+    default:
+      throw new Error(
+        `Cannot claim in phase "${phase}". ` +
+        `Check back once the market is claimable or refundable.`
+      );
+  }
+}
+```
+
+---
+
+## Multi-bet claim flow
+
+When a user has placed multiple bets on the same market (each with a distinct `betIndex`), each position must be claimed individually. The React claim hook and `useUserPositions` handle this automatically:
+
+```typescript
+import {
+  useClaimPayout,
+  useClaimRefund,
+  useUserPositions,
+} from "@cypher-zk/sdk/react";
+import { marketPhase, marketPda } from "@cypher-zk/sdk";
+import { useWallet } from "@solana/wallet-adapter-react";
+
+function ClaimAll({ marketId }: { marketId: bigint }) {
+  const wallet = useWallet();
+  const { data: market } = useMarket(marketId);
+  const { data: allPositions } = useUserPositions(wallet.publicKey ?? undefined);
+
+  const targetPda = marketPda(marketId)[0];
+  const unclaimed = (allPositions ?? []).filter(
+    ({ account }) => account.market.equals(targetPda) && !account.claimed,
+  );
+
+  const phase = market ? marketPhase(market) : null;
+  const payout = useClaimPayout({});
+  const refund = useClaimRefund({});
+
+  if (!phase || (phase !== "claimable" && phase !== "refundable")) {
+    return <p>No claims available (phase: {phase})</p>;
+  }
+
+  const mutation = phase === "claimable" ? payout : refund;
+  const label = phase === "claimable" ? "Claim Payout" : "Claim Refund";
+
+  return (
+    <ul>
+      {unclaimed.map(({ account }) => (
+        <li key={account.betIndex.toString()}>
+          <button
+            disabled={mutation.isPending}
+            onClick={() =>
+              mutation.mutate({
+                payer: wallet.publicKey!,
+                user: wallet.publicKey!,
+                marketId,
+                betIndex: account.betIndex,
+              })
+            }
+          >
+            {label} (bet #{account.betIndex.toString()})
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+<Tip>
+  The `useUserPositions` hook automatically invalidates its cache after each successful claim, so the list of unclaimed positions updates without a manual refresh.
+</Tip>

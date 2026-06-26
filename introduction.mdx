@@ -1,0 +1,53 @@
+---
+title: "Cypher: Private Prediction Markets on Solana"
+sidebarTitle: "Introduction"
+description: "Learn what Cypher is, how it uses Arcium MPC to encrypt predictions on-chain, and what you can build with the @cypher-zk/sdk."
+---
+
+Cypher is a prediction market protocol on Solana where your chosen outcome stays private until settlement. In conventional prediction markets, every bet is publicly readable on-chain the moment it lands — sophisticated actors can front-run positions, markets can be manipulated by watching the order flow, and user behaviour is trivially profiled. Cypher eliminates that problem: your prediction is encrypted with your own x25519 keypair before it leaves your device, and the ciphertext is what gets written to Solana. Nobody — not the protocol, not validators, not other bettors — can read your chosen side until Arcium's MPC network decrypts and settles the market after it closes.
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Encrypted predictions" icon="lock">
+    Your chosen side is encrypted client-side with x25519 + RescueCipher. Only your stake amount is visible on-chain during the betting window.
+  </Card>
+  <Card title="Three market types" icon="chart-bar">
+    **YesNo** for binary outcomes, **MultiOutcome** for 2–4 labelled options, and **Accuracy** for fixed-stake numeric predictions at $1, $10, or $100 tiers.
+  </Card>
+  <Card title="React hooks included" icon="react">
+    `@cypher-zk/sdk/react` ships `usePlaceBet`, `useMarkets`, `usePosition`, `useCancelMarket`, and more — drop them into any wallet-adapter app.
+  </Card>
+  <Card title="Challenge window" icon="flag">
+    After resolution, a 24–48 hour dispute window lets anyone flag a suspicious outcome before payouts open. Undisputed resolutions finalize automatically.
+  </Card>
+  <Card title="USDC on Solana" icon="dollar-sign">
+    All stakes and payouts are denominated in USDC (6 decimals). The minimum bet is $1. The accepted mint is read from on-chain `GlobalState` at runtime — the same SDK works on devnet and mainnet.
+  </Card>
+  <Card title="Permissionless markets" icon="globe">
+    Any wallet can create a market by posting a USDC bond (minimum $20). Markets support custom close times, categories, and independent resolver addresses.
+  </Card>
+</CardGroup>
+
+## Architecture overview
+
+Cypher is built across three coupled layers. As an app developer, you only ever work with the bottom one.
+
+**MPC circuit layer (Arcium)** — Eight fixed-shape MPC circuits handle encrypted bet evaluation and payout computation. When a market resolves, the on-chain program queues a computation; Arcium's MPC cluster decrypts all positions, tallies sides, and writes the result back to Solana via a program callback. This computation takes roughly 10 seconds on devnet. You never interact with this layer directly.
+
+**On-chain program layer (Anchor)** — The Cypher Anchor program at `cyphPe923pnPGVXJL3a3P7t2W9mJsagBcg1oeauoh2B` manages market state, vault accounting, position PDAs, and the challenge window protocol. When a transaction is rejected, the error code surfaces from this layer as a typed `CypherError`. You don't call instructions directly — the SDK does it for you.
+
+**Client SDK layer (`@cypher-zk/sdk`)** — This is your surface. The SDK wraps the entire encrypt → submit → await MPC callback → refetch choreography behind named action methods and React hooks. It handles PDA derivation, fee computation, event parsing, and phase gating. Import it from `@cypher-zk/sdk`; for React hooks use `@cypher-zk/sdk/react`.
+
+<Note>
+  Never import `@cypher-zk/sdk/node` in browser code. That subpath is reserved for future Node-only admin utilities and will break any browser bundler.
+</Note>
+
+## What you can build
+
+- **Prediction market frontends** — Display live markets, accept encrypted bets, show position status, and handle payout claims with React hooks.
+- **Market creator dashboards** — Let users post markets with custom questions, categories, lock times, and resolver addresses.
+- **Resolver bots** — Node.js scripts that watch market deadlines and post resolutions via `client.actions.resolveMarket`.
+- **Event indexers** — Subscribe to on-chain events (`BetPlacedEvent`, `MarketResolvedEvent`, `PayoutClaimedEvent`, etc.) for analytics or notifications.
+
+Ready to write code? The [Quickstart](/quickstart) gets you to a placed bet in under 5 minutes.

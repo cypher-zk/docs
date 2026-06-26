@@ -1,0 +1,191 @@
+---
+title: "Create a Prediction Market on Cypher"
+sidebarTitle: "Create a Market"
+description: "Set up a YesNo or MultiOutcome prediction market on Cypher, earn LP fees from every bet, and manage your market through resolution and fund withdrawal."
+---
+
+Anyone can create a prediction market on Cypher by posting a creator bond and defining the question, outcome options, and timeline. In exchange for putting up that bond, you earn a share of the LP fees collected on every bet placed in your market. This guide covers both market types, the parameters that shape them, and how to withdraw your earnings once the market closes.
+
+## Prerequisites
+
+```bash
+npm install @cypher-zk/sdk @solana/web3.js@^1.95.4
+```
+
+You'll need a funded USDC (or devnet CSDC) token account and enough SOL to pay transaction fees. The minimum creator bond is **$20 USDC** — this bond is returned to you after the market resolves and bets are claimed, along with any LP fees you've earned.
+
+---
+
+## Creator bond and LP fees
+
+When you create a market, you lock a USDC bond on-chain. This bond:
+
+- Guarantees you'll resolve the market on time (or face a refund to bettors).
+- Earns you a share of the `lpFeeRateBps` fee charged on every bet. With a default LP fee of 1.5 %, a market that handles $10,000 in volume pays out $150 in LP fees to the creator's LP position.
+
+After resolution and the claim window, call `withdrawCreatorFunds` to recover your bond plus accrued fees in a single transaction.
+
+---
+
+## Creating a market
+
+<Tabs>
+  <Tab title="YesNo market">
+    A YesNo market presents a single binary question. Bettors choose YES (side `1`) or NO (side `0`).
+
+    ```typescript
+    import { CypherClient } from '@cypher-zk/sdk';
+
+    const result = await client.actions.createMarket({
+      question: 'Will BTC exceed $100k by end of 2025?',
+      category: 'Crypto',
+      lockTimestamp: Math.floor(Date.now() / 1000) + 86_400,   // 24 h from now
+      resolveDeadline: Math.floor(Date.now() / 1000) + 172_800, // 48 h from now
+      oracleType: 'creator', // you resolve it manually; or 'pyth' for price feeds
+    });
+
+    console.log('Market created:', result.marketId.toString());
+    console.log('Market PDA:', result.market.toBase58());
+    ```
+
+    <Tip>
+      The `lockTimestamp` is when betting closes. The `resolveDeadline` is the
+      deadline by which you (as creator-resolver) must call `resolveMarket`. If
+      you miss it, the market becomes `refundable` and bettors can reclaim their
+      stakes.
+    </Tip>
+  </Tab>
+
+  <Tab title="MultiOutcome market">
+    A MultiOutcome market supports 2–4 distinct outcomes. Encode the outcome labels directly in the question string using a `[A|B|C]` suffix — the SDK parses them automatically.
+
+    ```typescript
+    const result = await client.actions.createMarketMulti({
+      question: 'Who wins the 2025 World Cup? [Brazil|France|Germany|Argentina]',
+      category: 'Sports',
+      lockTimestamp: Math.floor(Date.now() / 1000) + 86_400,
+      resolveDeadline: Math.floor(Date.now() / 1000) + 172_800,
+      oracleType: 'creator',
+    });
+    ```
+
+    When displaying outcome buttons in your UI, always derive them from the stored question:
+
+    ```typescript
+    import { getMarketOptionLabels, parseEmbeddedOptions } from '@cypher-zk/sdk';
+
+    const rawQuestion = questions.get(market.publicKey.toBase58()) ?? '';
+    const { displayQuestion } = parseEmbeddedOptions(rawQuestion);
+    const labels = getMarketOptionLabels(market.account, rawQuestion);
+    // labels = ['Brazil', 'France', 'Germany', 'Argentina']
+    // side 0 → Brazil, side 1 → France, etc.
+    ```
+
+    <Warning>
+      Never hard-code `['YES', 'NO']` or numbered outcomes for MultiOutcome
+      markets. Always call `getMarketOptionLabels()` with the raw on-chain
+      question string.
+    </Warning>
+  </Tab>
+</Tabs>
+
+---
+
+## Parameters reference
+
+| Parameter | Type | Description |
+|---|---|---|
+| `question` | `string` | The prediction question. Max 200 bytes. Include `[A\|B\|C]` suffix for MultiOutcome. |
+| `category` | `string` | One of: `Crypto`, `Politics`, `Sports`, `Tech`, `Economy`, `Culture`, `Beyond` |
+| `lockTimestamp` | `number` | Unix timestamp when betting closes. Must be ≥ now + 60 seconds. |
+| `resolveDeadline` | `number` | Unix timestamp by which you must resolve the market. |
+| `oracleType` | `'creator' \| 'pyth'` | `'creator'` means you post the outcome manually. `'pyth'` uses a Pyth price feed. |
+| `bondAmount` | `bigint` (optional) | Creator bond in micro-USDC. Minimum `20_000_000n` ($20). Defaults to the minimum. |
+| `challengePeriod` | `number` (optional) | Seconds the dispute window stays open after resolution. Must be 24h–48h. Defaults to 24h. |
+
+### Category values
+
+```typescript
+import { MarketCategory } from '@cypher-zk/sdk';
+
+// MarketCategory enum
+// Crypto=0, Politics=1, Sports=2, Tech=3, Economy=4, Culture=5, Beyond=6
+```
+
+### Oracle types
+
+<CardGroup cols={2}>
+  <Card title="Creator oracle" icon="user">
+    You post the outcome by calling `resolveMarket` before `resolveDeadline`. Suitable for subjective or off-chain events.
+  </Card>
+  <Card title="Pyth oracle" icon="bolt">
+    A Pyth price feed posts the outcome automatically when the resolution condition triggers. Suitable for price-based markets.
+  </Card>
+</CardGroup>
+
+---
+
+## Cancelling a market
+
+You can cancel a market **before any bets are placed** to recover your bond. Once even one bet lands on-chain, cancellation is blocked.
+
+```typescript
+import { cancelEligibility } from '@cypher-zk/sdk';
+
+// Always check eligibility first — the action throws a clean error if ineligible
+const { ok, reason } = cancelEligibility(market.account);
+if (!ok) {
+  console.error('Cannot cancel:', reason);
+  // e.g. "1 bet(s) placed — cannot cancel"
+} else {
+  await client.actions.cancelMarket({ marketId: market.account.marketId });
+}
+```
+
+---
+
+## Withdrawing creator funds
+
+After the market resolves and the claim/refund windows close, call `withdrawCreatorFunds` to receive your bond and LP fee earnings in one transaction:
+
+```typescript
+await client.actions.withdrawCreatorFunds({
+  marketId: market.account.marketId,
+});
+```
+
+<Note>
+  `withdrawCreatorFunds` will revert if the claim or refund period is still
+  active. Use `marketPhase(market)` to check — it returns `"expired"` once all
+  windows have closed and the withdrawal is safe.
+</Note>
+
+---
+
+## Full example
+
+```typescript
+import { CypherClient, MarketCategory, MIN_CREATOR_BOND } from '@cypher-zk/sdk';
+import { Connection } from '@solana/web3.js';
+
+const client = new CypherClient({
+  connection: new Connection('https://api.devnet.solana.com', 'confirmed'),
+  wallet,
+  cluster: 'devnet',
+});
+
+const nowSec = Math.floor(Date.now() / 1000);
+
+// Create a YesNo market with a 48-hour betting window
+const { marketId, market } = await client.actions.createMarket({
+  question: 'Will ETH surpass $5,000 before July 2026?',
+  category: 'Crypto',
+  lockTimestamp:    nowSec + 172_800, // 48 h
+  resolveDeadline:  nowSec + 259_200, // 72 h
+  oracleType: 'creator',
+  bondAmount: MIN_CREATOR_BOND, // 20_000_000n = $20 USDC
+  challengePeriod: 86_400,      // 24h dispute window (minimum)
+});
+
+console.log(`Market #${marketId} created at ${market.toBase58()}`);
+```

@@ -1,0 +1,163 @@
+---
+title: "Core Concepts: How Cypher Prediction Markets Work"
+sidebarTitle: "Core Concepts"
+description: "Understand markets, pools, positions, the Arcium MPC settlement process, and the challenge window in Cypher's prediction market protocol."
+---
+
+Before writing code against `@cypher-zk/sdk`, it helps to understand the moving parts of the protocol. This page covers the key on-chain entities, how a market travels from creation to payout, what Cypher's privacy guarantee actually means, and how the challenge window protects bettors from bad resolutions.
+
+## Key terms
+
+**Market** — The core on-chain account representing a single question with a defined close time and resolver. Every market has a type (YesNo, MultiOutcome, or Accuracy), a category, a creator who posted a USDC bond to open it, and a designated resolver who posts the real-world outcome. Markets are identified by a sequential `marketId` (a `bigint`), and their PDA is derived from `["market", marketId u64 LE]`.
+
+**Pool** — Each possible outcome in a market has its own pool, which holds the USDC staked on that side. A YesNo market has two pools (YES and NO); a MultiOutcome market has 2–4 pools; an Accuracy market has one pool per tier. Pool balances drive the odds shown to bettors — the SDK exposes `revealedPool0` through `revealedPool3` on the market account after resolution.
+
+**Position** — When a user places a bet, an `EncryptedPosition` PDA is created, seeded by `(market, user, betIndex)`. A single wallet can hold multiple positions on the same market — one per `betIndex`. The position stores the encrypted payload (your chosen side), your stake, entry odds, and a `claimed` flag. Since SDK version 0.8.0, `betIndex` is auto-incremented on-chain; always key your saved secrets by `(market, betIndex)`.
+
+**MarketGroup** — In the underlying program, markets are organised under a `MarketGroup` that holds the question, oracle type, lock timestamp, resolve deadline, and bond. The high-level SDK actions abstract this away, but it's useful to know that the question text lives in a separate `MarketQuestion` PDA (for current v3 markets) rather than on the market account itself.
+
+**Oracle** — The address allowed to post the real-world outcome via `resolveMarket`. This can be the market creator (`creatorResolved`) or an automated Pyth price feed. The resolver calls `client.actions.resolveMarket`, which queues a computation on Arcium; the MPC result is written back to the market account via a program callback.
+
+**Settlement** — The process by which Arcium's MPC network decrypts all encrypted positions, determines the winning side, computes a payout ratio, and writes the result to the market account. Settlement is triggered by the resolver and completes asynchronously (~10 seconds). After the challenge window closes, `finalizeResolution` opens claims.
+
+**Challenge window** — A 24–48 hour period that begins when the resolver posts a result. During this window anyone can call `flagResolution` to dispute the outcome. If no dispute is raised, `finalizeResolution` (callable by anyone) moves the market to the claimable state. If disputed, only admin can override with the correct outcome.
+
+---
+
+## Market lifecycle
+
+A market passes through the following phases in order. The `marketPhase(market)` helper returns the current phase as a string, and all action buttons in your UI should be gated on it.
+
+```
+Created
+   │
+   ▼
+betting             ← placeBet open; market is Active and before closeTime
+   │
+   ▼
+awaitingResolve     ← betting closed; resolver should call resolveMarket
+   │
+   ▼
+pendingResolution   ← MPC has run; result written; 24–48h challenge window open
+   │                   flagResolution available to anyone
+   ├──(disputed)──► disputed          ← admin must call adminOverrideResolution
+   │
+   ▼
+awaitingFinalize    ← challenge window elapsed with no dispute
+   │
+   ▼  finalizeResolution (anyone)
+   │
+   ├──► claimable   ← Resolved; claimPayout open until claimDeadline
+   └──► refundable  ← if resolutionDeadline passed without a result; claimRefund open
+```
+
+<Note>
+  `claimPayout` and `claimRefund` are only available after `finalizeResolution` (or `adminOverrideResolution`) sets the market state to `Resolved`. Calling a claim action while the market is still in `pendingResolution` will fail on-chain.
+</Note>
+
+### Phase reference
+
+| Phase | What it means | Available actions |
+|---|---|---|
+| `betting` | Market is open for bets | `placeBet` |
+| `awaitingResolve` | Betting closed; awaiting resolver | `resolveMarket` (resolver only) |
+| `pendingResolution` | MPC result posted; challenge window open | `flagResolution` (anyone) |
+| `awaitingFinalize` | Challenge window elapsed; undisputed | `finalizeResolution` (anyone) |
+| `disputed` | Resolution was flagged | `adminOverrideResolution` (admin only) |
+| `claimable` | Resolved; claims open | `claimPayout` |
+| `refundable` | Resolution deadline missed | `claimRefund` |
+| `expired` | All deadlines elapsed | `adminClaimRemaining` (admin only) |
+| `cancelled` | Creator cancelled before any bets | — |
+
+---
+
+## Privacy guarantee
+
+Cypher hides your chosen side — but not your stake amount. Here is exactly what is and is not visible on-chain when you place a bet:
+
+| Position field | On-chain visibility |
+|---|---|
+| Wallet address | **Public** |
+| Stake amount (`netAmount`) | **Public** — required for vault accounting |
+| Entry odds (`entryOdds`) | **Public** — locked at bet time |
+| Chosen side (`encryptedSide`) | **Ciphertext** — hidden until MPC settlement |
+| Bet amount ciphertext (`encryptedAmount`) | **Ciphertext** |
+| x25519 public key + nonce | Public (required for MPC decrypt) |
+
+Your chosen side is encrypted with a fresh x25519 keypair generated client-side. The SDK derives a shared secret between your ephemeral private key and the Arcium MXE (Multi-party eXecution Environment) public key, then uses RescueCipher to encrypt your side and amount into two 32-byte ciphertexts. Only the Arcium MPC cluster — running the settlement circuit in a secure enclave — ever sees the plaintext.
+
+<Warning>
+  The x25519 private key returned in `userKeypair.privateKey` from `placeBet` is **your only way to decrypt your own position** after settlement. Persist it immediately, keyed by `(market, betIndex)`. There is no on-chain recovery path.
+</Warning>
+
+---
+
+## Market types
+
+### YesNo
+
+Binary YES/NO outcome markets. Option labels are always `["NO", "YES"]` (index 0 = NO, index 1 = YES). Use `client.actions.createMarket` to create one.
+
+```typescript
+await client.actions.createMarket({
+  question: "Will BTC close above $100k on 31 Dec 2025?",
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 3600),
+  category: 0, // Crypto
+  bondAmount: 20_000_000n, // $20 USDC minimum
+});
+```
+
+### MultiOutcome
+
+Markets with 2–4 named outcomes. Labels are embedded directly in the on-chain question string as a `[Label A|Label B|Label C]` suffix. Always strip this before rendering with `parseEmbeddedOptions`, and use `getMarketOptionLabels` to build bet buttons.
+
+```typescript
+await client.actions.createMarketMulti({
+  question: "Which chain will have the most TVL on 1 Jan 2026? [Solana|Ethereum|Base]",
+  numOutcomes: 3,
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 30 * 24 * 3600),
+  category: 0,
+  bondAmount: 20_000_000n,
+});
+```
+
+### Accuracy
+
+Fixed-stake markets where you predict an exact numeric value. Three tiers set the stake automatically — you do not choose an amount.
+
+| Tier | Stake |
+|---|---|
+| Micro | $1 USDC |
+| Standard | $10 USDC |
+| Whale | $100 USDC |
+
+---
+
+## USDC and fees
+
+All Cypher markets use USDC (6 decimal places). The accepted mint address is read from the `GlobalState` account at runtime — the same SDK binary works on devnet (CSDC test token) and mainnet (real USDC) without any code change.
+
+<Tip>
+  Never hardcode a mint address. Always read `client.globalState.fetch().acceptedMint` or let the SDK handle it internally via `placeBet` / `createMarket`.
+</Tip>
+
+When a bet is placed, two fees are deducted from your stake before the net amount enters the pool:
+
+- **Protocol fee** — a small percentage (up to 1%) sent to the protocol treasury.
+- **LP fee** — a percentage (up to 5%) accrued to the market creator's LP position.
+
+Use `computeFees(amount, { protocolFeeRateBps, lpFeeRateBps })` to preview the breakdown before presenting a confirmation UI.
+
+```typescript
+import { computeFees } from "@cypher-zk/sdk";
+
+const { protocolFee, lpFee, netAmount } = computeFees(5_000_000n, {
+  protocolFeeRateBps: 50,   // 0.5%
+  lpFeeRateBps: 150,        // 1.5%
+});
+// protocolFee: 25_000  ($0.025)
+// lpFee:       75_000  ($0.075)
+// netAmount: 4_900_000 ($4.90 — this is what enters your position)
+```
+
+The minimum bet for flat (YesNo / MultiOutcome) markets is **$1 USDC** (`MIN_BET_USDC = 1_000_000n`). Accuracy markets use fixed tier sizes and ignore the minimum.

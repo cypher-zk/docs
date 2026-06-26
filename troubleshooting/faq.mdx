@@ -1,0 +1,162 @@
+---
+title: "Cypher Prediction Markets FAQ"
+sidebarTitle: "FAQ"
+description: "Frequently asked questions about Cypher — settlement time, keypair recovery, USDC, privacy, multi-bet support, creator bonds, and dispute resolution."
+---
+
+Got questions about how Cypher works? This page covers the most common ones — from how long MPC settlement takes to what happens when a market expires. If your question isn't here, check [Common Errors](/troubleshooting/common-errors) for SDK-specific issues.
+
+<AccordionGroup>
+
+<Accordion title="How long does bet settlement take?">
+
+Settlement involves Arcium's multi-party computation (MPC) network verifying and tallying encrypted bets. The process typically takes **around 10 seconds** end-to-end, but can vary by cluster:
+
+| Environment | Typical duration |
+|---|---|
+| Localnet | 5–8 seconds |
+| Devnet | 15–30 seconds |
+| Mainnet | ~10 seconds |
+
+From the user's perspective, settlement starts when the `placeBet` transaction lands on-chain and finishes when the Arcium callback fires. Show a progress indicator during this window — the SDK's `onProgress` callback makes this easy:
+
+```typescript
+await client.actions.placeBet({
+  market,
+  betAmountUsdc: 5_000_000n,
+  side: "YES",
+  onProgress: ({ stage }) => {
+    if (stage === "awaiting-callback") showSpinner("Settling your bet…");
+    if (stage === "done") hideSpinner();
+  },
+});
+```
+
+</Accordion>
+
+<Accordion title="Can I recover a lost userKeypair?">
+
+**No.** The `userKeypair` returned by `placeBet` is generated client-side and never sent to the network or stored by the SDK. If you lose it, there is no recovery path.
+
+You must save it immediately when `placeBet` resolves — before the function returns, before any page navigation, and before any component unmounts:
+
+```typescript
+const { userKeypair } = await client.actions.placeBet({ ... });
+
+// ✅ Save before doing anything else
+await db.saveKeypair(market.marketId, userKeypair.secretKey);
+```
+
+A lost `userKeypair` means you can no longer decrypt your encrypted position data for that bet. Your USDC stake is still on-chain and claimable — but you won't be able to read back your encrypted bet details through the SDK.
+
+</Accordion>
+
+<Accordion title="What happens when a market expires without being resolved?">
+
+If a market's resolver doesn't submit a resolution before the resolution deadline, the market enters the **refundable** phase. In this state, all participants can claim a full refund of their original stake:
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+if (marketPhase(market) === "refundable") {
+  await client.actions.claimRefund({ market });
+}
+```
+
+The refund period has a deadline too — claims must be submitted before `market.refundDeadline`. After that deadline, remaining funds can only be recovered by the protocol admin. Check `marketPhase(market)` to determine exactly which actions are available at any given time.
+
+</Accordion>
+
+<Accordion title="Can I place multiple bets on the same market?">
+
+**Yes, as of SDK v0.8.0.** You can place multiple bets on the same market from the same wallet. Each bet creates a separate `EncryptedPosition` account identified by a `betIndex`.
+
+The SDK handles `betIndex` automatically when you use `client.actions.placeBet`. To fetch all your positions on a single market:
+
+```typescript
+const positions = await client.positions.byUser(wallet.publicKey);
+const marketPositions = positions.filter(
+  ({ account }) => account.market.equals(marketPda)
+);
+```
+
+Prior to v0.8.0, a second bet on the same market would fail with a seeds constraint error.
+
+</Accordion>
+
+<Accordion title="What currency do markets use?">
+
+All Cypher prediction markets settle in **USDC on Solana**. USDC uses 6 decimal places — 1 USDC equals `1_000_000` in raw token units.
+
+The accepted mint address is not hardcoded — it's stored in the protocol's on-chain `GlobalState` account. Always read it at runtime:
+
+```typescript
+const { acceptedMint } = await client.globalState.fetch();
+```
+
+The minimum bet size is `1_000_000` raw units ($1 USDC). When creating a market, the creator bond is at least `20_000_000` raw units ($20 USDC).
+
+</Accordion>
+
+<Accordion title="Is my prediction visible to other users?">
+
+**Your prediction (YES or NO, or multi-outcome choice) is fully private.** Your stake amount is also encrypted. The only information visible on-chain is the aggregate pool sizes, which are revealed by Arcium MPC after the market resolves.
+
+Specifically:
+- Your vote/side is encrypted with your x25519 `userKeypair` before it leaves your device
+- Your bet amount is encrypted with the same key
+- The Arcium cluster can verify computation correctness without learning individual inputs
+- Only the aggregate totals (`revealedPool0`, `revealedPool1`, etc.) are published after resolution
+
+This privacy is enforced by the protocol — it's not a UI-level feature that can be bypassed.
+
+</Accordion>
+
+<Accordion title="How does the creator bond work?">
+
+When you create a market, you lock a **creator bond** of at least $20 USDC as a deposit. The bond is held in the market vault and returned to you when the market resolves accurately and you withdraw your creator funds.
+
+The bond serves two purposes:
+1. **Spam prevention** — it costs real money to create a market, discouraging low-quality or malicious markets
+2. **Resolver accountability** — the bond is at risk if you, as the resolver, behave dishonestly (an admin can override your resolution during a dispute)
+
+To withdraw your bond and any LP fees after a market resolves:
+
+```typescript
+await client.actions.withdrawCreatorFunds({ market });
+```
+
+The minimum bond is `20_000_000` raw units ($20 USDC). There is no upper bound — you can post a larger bond if you want to signal higher confidence in your resolution.
+
+</Accordion>
+
+<Accordion title="Can I dispute a market resolution?">
+
+**Yes.** After a resolver submits a resolution, Cypher v0.2+ opens a **challenge window of 24–48 hours** (set by the market creator at creation time). During this window, anyone can flag the resolution as potentially incorrect:
+
+```typescript
+// Flag a resolution you believe is wrong (anyone can call this)
+await client.actions.flagResolution({ market });
+```
+
+Once flagged, the market enters a `disputed` state and is escalated for admin review. The admin can then override the resolution with the correct outcome via `adminOverrideResolution`.
+
+If no one flags the resolution during the window, any user can finalize it:
+
+```typescript
+// Finalize an uncontested resolution after the window elapses
+await client.actions.finalizeResolution({ market });
+```
+
+Use `marketPhase(market)` to determine which actions are available:
+
+| Phase | Meaning | Available action |
+|---|---|---|
+| `pendingResolution` | Inside challenge window, not disputed | `flagResolution` |
+| `awaitingFinalize` | Window elapsed, not disputed | `finalizeResolution` |
+| `disputed` | Flagged — admin reviewing | None (wait for admin) |
+| `claimable` | Finalized — payouts open | `claimPayout` |
+
+</Accordion>
+
+</AccordionGroup>

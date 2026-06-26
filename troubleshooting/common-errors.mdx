@@ -1,0 +1,303 @@
+---
+title: "Troubleshoot Common Cypher SDK Errors"
+sidebarTitle: "Common Errors"
+description: "Diagnose and fix the most frequent Cypher SDK errors — from lost keypairs and MPC timeouts to web3.js version mismatches and missing Buffer polyfills."
+---
+
+Most errors you'll encounter with the Cypher SDK fall into a handful of categories: betting and keypair issues, wrong market state, bundler configuration problems, and insufficient funds. This page covers each one with a root cause and a concrete fix. For on-chain errors returned from the program, use `parseCypherError` to get a human-readable message.
+
+## Parsing on-chain errors
+
+Before digging into specific errors, wire up `parseCypherError` in your error handling. It handles every error shape the SDK produces — `AnchorError`, `SendTransactionError` with log output, and plain `Error` messages:
+
+```typescript
+import { parseCypherError } from "@cypher-zk/sdk";
+
+try {
+  await client.actions.claimPayout({ market });
+} catch (e) {
+  const parsed = parseCypherError(e);
+  if (parsed) {
+    console.error(`[${parsed.code}] ${parsed.name}: ${parsed.msg}`);
+    // e.g. "[6000] MarketNotActive: Market closed/resolved/cancelled"
+  } else {
+    throw e; // not a Cypher program error — rethrow
+  }
+}
+```
+
+---
+
+## Betting errors
+
+<AccordionGroup>
+
+<Accordion title="Error: Cannot read properties of undefined (reading 'privateKey')">
+
+**Cause:** You tried to access `userKeypair` (or one of its fields) without saving it first. `placeBet` returns a `userKeypair` in its result — this is the x25519 encryption keypair used to encrypt your bet. The SDK does not persist it anywhere.
+
+**Fix:** Destructure and save `userKeypair` immediately when `placeBet` resolves:
+
+```typescript
+const { userKeypair, signature } = await client.actions.placeBet({
+  market,
+  betAmountUsdc: 5_000_000n,
+  side: "YES",
+});
+
+// ✅ Save this immediately — in your database, localStorage, or secure storage
+localStorage.setItem(`keypair:${market.marketId}`, JSON.stringify(Array.from(userKeypair.secretKey)));
+```
+
+If you've already lost the keypair, it cannot be recovered. You will be unable to decrypt your encrypted position data for that bet.
+
+</Accordion>
+
+<Accordion title="Error: placeBet awaiting callback timeout">
+
+**Cause:** This is expected behavior, not a bug. Arcium MPC settlement involves a multi-party computation across the Arcium cluster, which typically takes 10–30 seconds on devnet. If `timeoutMs` is hit (default: 120 seconds), the callback never arrives.
+
+**Fix:** Show a progress indicator using the `onProgress` callback, and increase `timeoutMs` if you're seeing frequent timeouts on devnet:
+
+```typescript
+const result = await client.actions.placeBet({
+  market,
+  betAmountUsdc: 5_000_000n,
+  side: "YES",
+  timeoutMs: 300_000, // 5 minutes — generous for devnet
+  onProgress: (event) => {
+    if (event.stage === "awaiting-callback") {
+      showToast("Arcium MPC is computing your bet… this takes ~10s");
+    }
+    if (event.stage === "done") {
+      hideToast();
+    }
+  },
+});
+```
+
+Typical end-to-end times: 5–8s on localnet, 15–30s on devnet.
+
+</Accordion>
+
+</AccordionGroup>
+
+---
+
+## State errors
+
+<AccordionGroup>
+
+<Accordion title="Error: claimPayout failed with constraint error">
+
+**Cause:** You called `claimPayout` on a market that isn't in the `claimable` phase. In Cypher v0.2+, resolved markets go through a challenge window before claims open. The market must be finalized before `claimPayout` will succeed.
+
+**Fix:** Check `marketPhase(market)` before calling claim actions, and show the appropriate UI for each phase:
+
+```typescript
+import { marketPhase } from "@cypher-zk/sdk";
+
+const phase = marketPhase(market);
+
+switch (phase) {
+  case "claimable":
+    // ✅ Safe to call claimPayout
+    await client.actions.claimPayout({ market });
+    break;
+  case "pendingResolution":
+    // Show "Challenge window open" — anyone can flag
+    showLabel("Resolution pending — challenge window open");
+    break;
+  case "awaitingFinalize":
+    // Show "Finalize" button — anyone can call this
+    showButton("Finalize Resolution", () =>
+      client.actions.finalizeResolution({ market })
+    );
+    break;
+  case "disputed":
+    showLabel("Market disputed — awaiting admin review");
+    break;
+}
+```
+
+</Accordion>
+
+<Accordion title="Error: market.question is undefined">
+
+**Cause:** In Cypher v3 market accounts, the question string is stored in a separate `MarketQuestion` PDA, not inline on the `MarketAccount`. Reading `market.question` directly returns `undefined` for current markets.
+
+**Fix:** Use `fetchMarketQuestions` to batch-fetch question data, then look up the question from the returned map:
+
+```typescript
+import { fetchMarketQuestions } from "@cypher-zk/sdk";
+
+const markets = await client.markets.all();
+const questionMap = await fetchMarketQuestions(client, markets.map(m => m.publicKey));
+
+for (const { publicKey, account } of markets) {
+  const rawQuestion =
+    questionMap.get(publicKey.toBase58()) ||
+    account.inlineQuestion ||              // populated for v1/v2 legacy accounts
+    `Market #${account.marketId}`;         // fallback
+
+  console.log(rawQuestion);
+}
+```
+
+</Accordion>
+
+</AccordionGroup>
+
+---
+
+## Setup errors
+
+<AccordionGroup>
+
+<Accordion title="Error: @solana/web3.js v2 not compatible">
+
+**Cause:** The SDK requires `@solana/web3.js` v1. Your project has v2 installed, which has a completely different API surface and is not backwards-compatible.
+
+**Fix:** Downgrade to the v1 range:
+
+```bash
+npm install @solana/web3.js@^1.95.4
+```
+
+If you're using `package.json` workspaces or a monorepo, make sure all packages resolve to the same v1 instance. Check your lock file for duplicate entries.
+
+</Accordion>
+
+<Accordion title="ReferenceError: Buffer is not defined">
+
+**Cause:** Your browser bundler doesn't polyfill the Node.js `Buffer` global, which the SDK uses internally.
+
+**Fix:** Add the appropriate polyfill for your bundler.
+
+<CodeGroup>
+
+```typescript Vite (vite.config.ts)
+import { defineConfig } from "vite";
+import { nodePolyfills } from "vite-plugin-node-polyfills";
+
+export default defineConfig({
+  plugins: [nodePolyfills()],
+});
+```
+
+```javascript Next.js (next.config.js)
+module.exports = {
+  webpack: (config) => {
+    config.resolve.fallback = {
+      buffer: require.resolve("buffer/"),
+      crypto: false,
+      fs: false,
+      stream: false,
+    };
+    return config;
+  },
+};
+```
+
+</CodeGroup>
+
+For Next.js, you can also add a per-file polyfill at the top of the offending client component:
+
+```typescript
+"use client";
+import { Buffer } from "buffer";
+if (typeof window !== "undefined") (window as never).Buffer ??= Buffer;
+```
+
+</Accordion>
+
+<Accordion title="Error: Cannot use import statement in module / Module 'node:fs' has been externalized">
+
+**Cause:** You're importing from `@cypher-zk/sdk/node` in browser-bound code. The `/node` subpath depends on `node:fs` and other Node-only APIs. It's reserved for future Cypher team admin tooling — app developers never need it.
+
+**Fix:** Remove the `@cypher-zk/sdk/node` import. Everything you need as an app developer — `CypherClient`, all action helpers, encryption utilities, `keypairToWallet`, `readonlyWallet` — is available from the core `@cypher-zk/sdk` subpath:
+
+```typescript
+// ❌ Will break in the browser
+import { something } from "@cypher-zk/sdk/node";
+
+// ✅ Use the core subpath instead
+import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+```
+
+</Accordion>
+
+</AccordionGroup>
+
+---
+
+## Funds errors
+
+<AccordionGroup>
+
+<Accordion title="Error: insufficient funds for fee">
+
+**Cause:** Your wallet doesn't have enough SOL to pay Solana transaction fees. Fees are small (typically 0.000005 SOL per transaction) but your wallet balance is at or near zero.
+
+**Fix:** Add SOL to your wallet. On devnet, use the faucet:
+
+```bash
+solana airdrop 1 <YOUR_WALLET_ADDRESS> --url devnet
+```
+
+On mainnet, transfer SOL from an exchange or another wallet.
+
+</Accordion>
+
+<Accordion title="Error: insufficient USDC">
+
+**Cause:** Your wallet's USDC token account doesn't have enough balance for the bet amount. Remember that USDC uses 6 decimal places — 1 USDC is `1_000_000` in raw token units.
+
+**Fix:** Check your USDC balance and make sure you're passing the correct raw amount:
+
+```typescript
+// ✅ Correct: 5 USDC = 5_000_000 raw units
+const betAmountUsdc = 5_000_000n;
+
+// ❌ Wrong: this is 5 micro-USDC, not 5 USDC
+const betAmountUsdc = 5n;
+```
+
+To check your balance:
+
+```bash
+spl-token balance <ACCEPTED_MINT> --owner <YOUR_WALLET>
+```
+
+On devnet, mint test USDC:
+
+```bash
+spl-token mint <ACCEPTED_MINT> 100 --url devnet
+```
+
+</Accordion>
+
+</AccordionGroup>
+
+---
+
+## On-chain error code reference
+
+The program emits structured error codes in the range 6000–6044. Use `parseCypherError(err)` to extract the code and a human-readable message:
+
+| Code | Name | What to do |
+|---|---|---|
+| 6000 | `MarketNotActive` | Refetch the market and re-render with `marketPhase` |
+| 6003 | `AlreadyResolved` | Market resolved during a race — refetch |
+| 6005 | `UnauthorizedResolver` | Only the pinned resolver can resolve this market |
+| 6007 | `AlreadyClaimed` | Position already claimed — refetch |
+| 6009 | `BetTooSmall` | Amount is below `market.minBet` — validate before submitting |
+| 6023 | `ResolutionDeadlinePassed` | Resolver missed the window — offer `claimRefund` instead |
+| 6033 | `WrongMint` | Read mint from `GlobalState.acceptedMint`, don't hardcode it |
+| 6037 | `BondTooSmall` | Pass `bondAmount >= 20_000_000n` ($20 USDC) when creating a market |
+| 6039 | `ChallengePeriodNotElapsed` | `finalizeResolution` called too early — wait for the challenge window |
+| 6044 | `UnauthorizedUser` | Wallet doesn't match the position owner |
+
+<Tip>
+  If you can't diagnose an error, capture: (1) the transaction signature from the `submitting` progress stage, (2) the computation offset from the progress event, (3) `client.cluster` and `client.connection.rpcEndpoint`, and (4) the SDK version from `node_modules/@cypher-zk/sdk/package.json`. File an issue at [github.com/cypher-zk/cypher-sdk/issues](https://github.com/cypher-zk/cypher-sdk/issues).
+</Tip>

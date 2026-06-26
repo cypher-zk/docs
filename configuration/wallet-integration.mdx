@@ -1,0 +1,161 @@
+---
+title: "Connect a Solana Wallet to Cypher"
+sidebarTitle: "Wallet Integration"
+description: "Connect any Solana wallet adapter to CypherClient, use keypair wrappers for Node.js scripts, and create read-only wallets for fetching without signing."
+---
+
+Cypher's SDK accepts any wallet that satisfies the `Wallet` interface — from Phantom and Solflare in the browser to bare keypairs in scripts and tests. This page shows you how to connect each kind of wallet to a `CypherClient`, and when to reach for the utility helpers `keypairToWallet` and `readonlyWallet`.
+
+## The Wallet interface
+
+The SDK's internal `Wallet` type requires three fields:
+
+```typescript
+interface Wallet {
+  publicKey: PublicKey;
+  signTransaction<T extends Transaction | VersionedTransaction>(tx: T): Promise<T>;
+  signAllTransactions<T extends Transaction | VersionedTransaction>(txs: T[]): Promise<T[]>;
+}
+```
+
+Every `@solana/wallet-adapter-*` wallet (Phantom, Solflare, Backpack, Coinbase Wallet, Ledger, and more) already satisfies this interface. You can pass the result of `useWallet()` directly.
+
+## Wallet adapter (React)
+
+This is the recommended setup for browser apps. Install the adapter packages alongside the SDK:
+
+```bash
+npm install @solana/wallet-adapter-react @solana/wallet-adapter-wallets @solana/wallet-adapter-react-ui
+```
+
+Then wrap your app with the adapter providers and pass the wallet straight into `CypherClient`:
+
+```tsx
+// app/providers.tsx
+import {
+  ConnectionProvider,
+  WalletProvider,
+  useWallet,
+} from "@solana/wallet-adapter-react";
+import { WalletModalProvider } from "@solana/wallet-adapter-react-ui";
+import { PhantomWalletAdapter } from "@solana/wallet-adapter-wallets";
+import { CypherProvider } from "@cypher-zk/sdk/react";
+import { CypherClient } from "@cypher-zk/sdk";
+import { Connection, clusterApiUrl } from "@solana/web3.js";
+
+const wallets = [new PhantomWalletAdapter()];
+const endpoint = clusterApiUrl("devnet");
+
+function InnerProviders({ children }: { children: React.ReactNode }) {
+  const wallet = useWallet();
+  const connection = new Connection(endpoint, "confirmed");
+
+  const client = new CypherClient({
+    connection,
+    wallet: wallet as never, // safe — adapter shape matches the SDK interface
+    cluster: "devnet",
+  });
+
+  return <CypherProvider client={client}>{children}</CypherProvider>;
+}
+
+export function AppProviders({ children }: { children: React.ReactNode }) {
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <InnerProviders>{children}</InnerProviders>
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
+}
+```
+
+<Note>
+  The `as never` cast on the wallet is safe. TypeScript doesn't automatically narrow the optional `publicKey` field on the adapter's union type, but the runtime shape is fully compatible with the SDK's `Wallet` interface.
+</Note>
+
+## Keypair wallet (Node.js / scripts / tests)
+
+For server-side scripts, CLI tools, and test suites, wrap a `Keypair` with `keypairToWallet`:
+
+```typescript
+import { Connection, Keypair } from "@solana/web3.js";
+import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+import { readFileSync } from "fs";
+
+// Load a keypair from a JSON file (e.g. generated with `solana-keygen new`)
+const raw = JSON.parse(readFileSync("./devnet-wallet.json", "utf-8"));
+const keypair = Keypair.fromSecretKey(new Uint8Array(raw));
+
+const client = new CypherClient({
+  connection: new Connection("https://api.devnet.solana.com", "confirmed"),
+  wallet: keypairToWallet(keypair),
+  cluster: "devnet",
+});
+```
+
+`keypairToWallet` returns a fully functional wallet that can sign transactions — the same `client.actions.*` methods work identically whether you're in a browser or a Node script.
+
+## Read-only wallet (data fetching without signing)
+
+For dashboards, server-rendered pages, or any context where you only need to read state and don't have a signer available, use `readonlyWallet`:
+
+```typescript
+import { Connection, PublicKey } from "@solana/web3.js";
+import { CypherClient, readonlyWallet } from "@cypher-zk/sdk";
+
+const publicKey = new PublicKey("YourPublicKeyHere...");
+
+const client = new CypherClient({
+  connection: new Connection("https://api.mainnet-beta.solana.com"),
+  wallet: readonlyWallet(publicKey),
+  cluster: "mainnet-beta",
+});
+
+// ✅ All read methods work
+const markets = await client.markets.all();
+const globalState = await client.globalState.fetch();
+
+// ❌ Signing methods throw "readonlyWallet cannot sign"
+await client.actions.placeBet(...); // throws
+```
+
+<Note>
+  `readonlyWallet` is ideal for Next.js server components and API routes that prefetch market data for SSR without needing a wallet connection. You can pass any valid `PublicKey` — the address is only used as the fee-payer identity for fee estimation.
+</Note>
+
+## Multi-wallet scenarios (relayer + user)
+
+If your architecture separates the fee payer from the position owner — for example, a relayer service pays SOL gas while users own their encrypted positions — pass both identities explicitly to bet actions:
+
+```typescript
+import { sendIx } from "@cypher-zk/sdk";
+
+// Build the instruction with explicit payer and user
+const ix = await client.bets.placeYesnoIx({
+  payer: relayer.publicKey,   // signs the transaction and pays SOL fees
+  user: userWallet.publicKey, // owns the bet position
+  // ... other params
+});
+
+// Both must sign — pass the user keypair as an extra signer
+await sendIx(client, ix, { signers: [userKeypair] });
+// The relayer signs as payer automatically via the provider
+```
+
+## Mobile wallets
+
+Mobile wallets that use deep-linking (Phantom Mobile, Solflare Mobile) or the Mobile Wallet Adapter protocol are supported through the [`@solana-mobile/wallet-adapter-mobile`](https://github.com/solana-mobile/mobile-wallet-adapter) package. They implement the same `Wallet` interface, so you wire them up identically to desktop adapters.
+
+<Note>
+  WebSocket event subscriptions can be unreliable on mobile networks. Use `client.events.pollEvents()` instead of `client.events.subscribeAll()` in mobile contexts.
+</Note>
+
+## Available wallet utilities
+
+| Utility | Signature | Use case |
+|---|---|---|
+| `keypairToWallet` | `(Keypair) => Wallet` | Wrap a keypair for Node.js scripts and tests |
+| `readonlyWallet` | `(PublicKey) => Wallet` | Create a wallet that can read state but throws on signing |

@@ -1,0 +1,130 @@
+---
+title: "@cypher-zk/sdk: JavaScript SDK Overview"
+sidebarTitle: "Overview"
+description: "Everything you need to build on Cypher: a typed TypeScript SDK covering the on-chain client, React hooks, utilities, and raw instruction builders."
+---
+
+`@cypher-zk/sdk` is the official TypeScript library for interacting with the Cypher prediction market protocol on Solana. It wraps every on-chain instruction in a strongly-typed API, ships pre-built React hooks backed by TanStack Query, and exposes Arcium MPC encryption helpers so your users' bet amounts and sides remain private end-to-end.
+
+The package is split into three import paths to keep bundle sizes lean. Most frontend applications only need the main entry point and the React subpath.
+
+<Warning>
+  The SDK targets **`@solana/web3.js` v1** (`^1.95.x`). It is not compatible with the web3.js v2 / `@solana/kit` API surface. Make sure your project resolves the v1 package.
+</Warning>
+
+## Installation
+
+Install the SDK and its required peer dependencies:
+
+<CodeGroup>
+
+```bash npm
+npm install @cypher-zk/sdk @solana/web3.js @solana/spl-token
+```
+
+```bash yarn
+yarn add @cypher-zk/sdk @solana/web3.js @solana/spl-token
+```
+
+```bash pnpm
+pnpm add @cypher-zk/sdk @solana/web3.js @solana/spl-token
+```
+
+</CodeGroup>
+
+If you plan to use the React hooks, you also need TanStack Query v5:
+
+<CodeGroup>
+
+```bash npm
+npm install @tanstack/react-query
+```
+
+```bash yarn
+yarn add @tanstack/react-query
+```
+
+```bash pnpm
+pnpm add @tanstack/react-query
+```
+
+</CodeGroup>
+
+## Import subpaths
+
+The package exposes three named subpaths. Import only what your environment needs.
+
+| Subpath | What it provides | Use in |
+|---|---|---|
+| `@cypher-zk/sdk` | `CypherClient`, types, constants, PDA helpers, utilities | Any JS/TS environment |
+| `@cypher-zk/sdk/react` | `CypherProvider`, all React hooks, query-key factories | Browser / React apps |
+| `@cypher-zk/sdk/node` | Reserved for future Node-only admin utilities | **Do not import in browser code** |
+
+<Warning>
+  Never import `@cypher-zk/sdk/node` in browser or React Native code. It is a placeholder for future server-side helpers and will break any browser bundler that tries to resolve it.
+</Warning>
+
+## Quick start
+
+The minimal setup for a React application — create the client once and share it through the provider:
+
+```typescript
+import { CypherClient } from '@cypher-zk/sdk';
+import { CypherProvider } from '@cypher-zk/sdk/react';
+import { Connection } from '@solana/web3.js';
+
+// 1. Build the client (synchronous — no await)
+const client = new CypherClient({
+  connection: new Connection('https://api.devnet.solana.com', 'confirmed'),
+  wallet: yourConnectedWallet,
+  cluster: 'devnet',
+});
+
+// 2. Wrap your app
+export function App() {
+  return (
+    <CypherProvider client={client}>
+      <YourApp />
+    </CypherProvider>
+  );
+}
+```
+
+From any component inside the provider you can now call hooks like `useMarkets()` or `usePlaceBet()`. See the [React Hooks](/sdk/react-hooks) reference for a complete list.
+
+## What the SDK covers
+
+<CardGroup cols={2}>
+  <Card title="CypherClient" icon="circle-nodes" href="/sdk/cypher-client">
+    The core client class. Exposes namespaced fetch methods, raw instruction builders, and high-level action helpers. Start here.
+  </Card>
+  <Card title="React Hooks" icon="react" href="/sdk/react-hooks">
+    Fourteen hooks for reading market state and submitting transactions, all backed by TanStack Query with automatic cache invalidation.
+  </Card>
+  <Card title="Actions" icon="bolt" href="/sdk/actions/markets">
+    High-level action functions — `createMarket`, `placeBet`, `resolveMarket`, `claimPayout`, and more. Each returns a progress-emitting promise.
+  </Card>
+  <Card title="Utilities" icon="wrench" href="/sdk/utilities/market-helpers">
+    Fee calculators, market-phase helpers, question label parsers, Arcium encryption functions, and on-chain event parsers.
+  </Card>
+</CardGroup>
+
+## Key constants
+
+A selection of the most commonly referenced constants exported from `@cypher-zk/sdk`:
+
+| Constant | Value | Description |
+|---|---|---|
+| `PROGRAM_ID` | `cyphPe923…oh2B` | Deployed Cypher program address |
+| `MIN_BET_USDC` | `1_000_000n` | Minimum bet ($1 USDC, 6 decimals) |
+| `MIN_CREATOR_BOND` | `20_000_000n` | Minimum market creation bond ($20 USDC) |
+| `ODDS_SCALE` | `1_000_000_000n` | Fixed-point scale for odds values (1e9) |
+| `MAX_PROTOCOL_FEE_BPS` | `100` | Maximum protocol fee (1%) |
+| `MAX_LP_FEE_BPS` | `500` | Maximum LP fee (5%) |
+| `DEFAULT_RESOLUTION_WINDOW_SECS` | `604_800` | Default resolution window (7 days) |
+
+Import them directly from the main package:
+
+```typescript
+import { PROGRAM_ID, MIN_BET_USDC, ODDS_SCALE } from '@cypher-zk/sdk';
+```

@@ -1,0 +1,288 @@
+---
+title: "SDK Events: Real-Time Market Activity Feed"
+sidebarTitle: "Events"
+description: "Subscribe to real-time Cypher program events — market creation, bet placement, resolution, claims, and disputes — using WebSocket or polling fallback."
+---
+
+The Cypher SDK emits strongly typed events for every on-chain action. You can subscribe to a live WebSocket stream via `client.events.subscribeAll`, listen for specific event types, or poll for recent events in environments that do not support WebSockets. All event field names use **camelCase** and all numeric fields are `bigint`.
+
+<Warning>
+  Event fields use **camelCase `bigint`** values — not snake_case, not `number`, not BN. For example, use `event.data.payoutAmount` (not `payout_amount`), and `event.data.marketId` (not `market_id`). Passing these values directly to a `Number()` cast is safe for display; use them as `bigint` for arithmetic.
+</Warning>
+
+---
+
+## Event types
+
+All event types are emitted by the Cypher program and parsed by the SDK into typed objects. Each event has a `name` discriminant and a `data` object:
+
+### MarketCreatedEvent
+
+Emitted when `createMarket` or `createMarketMulti` completes.
+
+| Field | Type | Description |
+|---|---|---|
+| `marketId` | `bigint` | Sequential market counter value |
+| `marketType` | `number` | `0` = YesNo, `1` = MultiOutcome |
+| `category` | `number` | `MarketCategory` enum value |
+| `creator` | `PublicKey` | Market creator wallet |
+| `question` | `string` | Raw question text (may include `[…]` suffix) |
+| `closeTime` | `bigint` | Unix timestamp when betting closes |
+
+### BetPlacedEvent
+
+Emitted after the Arcium MPC callback confirms a bet. Note that `encryptedAmount` and `encryptedSide` are ciphertexts — not the original values.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Bettor wallet |
+| `encryptedAmount` | `Uint8Array` | 32-byte ciphertext |
+| `encryptedSide` | `Uint8Array` | 32-byte ciphertext |
+| `nonce` | `bigint` | u128 encryption nonce |
+| `entryOdds` | `bigint` | Locked-in odds at time of bet (scaled by `1e9`) |
+
+### MarketResolvedEvent
+
+Emitted when the Arcium MPC callback writes the resolution.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `outcome` | `number` | Winning outcome index |
+| `revealedPool0` | `bigint` | Decrypted pool 0 total |
+| `revealedPool1` | `bigint` | Decrypted pool 1 total |
+| `revealedPool2` | `bigint` | Decrypted pool 2 total (MultiOutcome) |
+| `revealedPool3` | `bigint` | Decrypted pool 3 total (MultiOutcome) |
+| `payoutRatio` | `bigint` | Payout ratio (scaled by `1e9`) |
+
+### MarketCancelledEvent
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `creator` | `PublicKey` | Creator who cancelled |
+| `bondReturned` | `bigint` | USDC lamports returned to creator |
+
+### CreatorWithdrawnEvent
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `creator` | `PublicKey` | Creator who withdrew |
+| `bond` | `bigint` | Creator bond amount returned |
+| `lpFees` | `bigint` | LP fees collected |
+| `total` | `bigint` | Total USDC transferred |
+
+### PayoutClaimedEvent
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Claimant wallet |
+| `payoutAmount` | `bigint` | USDC lamports paid out |
+
+### RefundClaimedEvent
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Claimant wallet |
+| `refundAmount` | `bigint` | USDC lamports refunded |
+
+### ResolutionFlaggedEvent *(v0.2+)*
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Disputed market PDA |
+| `flaggedBy` | `PublicKey` | Wallet that submitted the flag |
+
+### MarketFinalizedEvent *(v0.2+)*
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `outcome` | `number` | Confirmed winning outcome index |
+| `payoutRatio` | `bigint` | Final payout ratio |
+
+### ResolutionOverriddenEvent *(v0.2+)*
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `oldOutcome` | `number` | Original (disputed) outcome |
+| `newOutcome` | `number` | Admin-corrected outcome |
+| `newPayoutRatio` | `bigint` | Recomputed payout ratio |
+| `admin` | `PublicKey` | Admin wallet that overrode |
+
+---
+
+## Subscribing to all events
+
+Use `client.events.subscribeAll` to receive a callback for every event emitted by the Cypher program. The subscription uses `Connection.onLogs` under the hood.
+
+```typescript
+import { useCypherClient } from "@cypher-zk/sdk/react";
+import type { CypherEvent } from "@cypher-zk/sdk";
+import { useEffect, useState } from "react";
+
+function useAllEvents(maxItems = 50) {
+  const client = useCypherClient();
+  const [events, setEvents] = useState<CypherEvent[]>([]);
+
+  useEffect(() => {
+    const sub = client.events.subscribeAll((event) => {
+      setEvents((prev) => [event, ...prev].slice(0, maxItems));
+    });
+    return () => sub.unsubscribe();
+  }, [client]);
+
+  return events;
+}
+```
+
+The callback receives a `CypherEvent` union — use `event.name` as the discriminant:
+
+```typescript
+client.events.subscribeAll((event) => {
+  switch (event.name) {
+    case "MarketCreatedEvent":
+      console.log("New market:", event.data.marketId, event.data.question);
+      break;
+    case "BetPlacedEvent":
+      console.log("Bet on", event.data.market.toBase58(), "odds:", event.data.entryOdds);
+      break;
+    case "PayoutClaimedEvent":
+      console.log("Payout:", Number(event.data.payoutAmount) / 1_000_000, "USDC");
+      break;
+    case "ResolutionFlaggedEvent":
+      console.warn("Disputed:", event.data.market.toBase58());
+      break;
+  }
+});
+```
+
+**Returns** `EventSubscription` with an `unsubscribe()` method. Always call `unsubscribe()` in your cleanup / `useEffect` return to avoid memory leaks and dangling WebSocket listeners.
+
+---
+
+## Filtering events for a specific market
+
+`subscribeAll` fires for every event across the entire Cypher program. Filter client-side by checking `event.data.market`:
+
+```typescript
+useEffect(() => {
+  const sub = client.events.subscribeAll((evt) => {
+    const hasMarketField =
+      evt.name === "BetPlacedEvent" ||
+      evt.name === "MarketResolvedEvent" ||
+      evt.name === "PayoutClaimedEvent" ||
+      evt.name === "RefundClaimedEvent" ||
+      evt.name === "ResolutionFlaggedEvent" ||
+      evt.name === "MarketFinalizedEvent";
+
+    if (hasMarketField && evt.data.market.equals(myMarketPda)) {
+      handleMarketEvent(evt);
+    }
+  });
+
+  return () => sub.unsubscribe();
+}, [client, myMarketPda.toBase58()]);
+```
+
+---
+
+## Typed per-event subscribers
+
+For single-event subscriptions, use the named helpers on `client.events`:
+
+```typescript
+// Only fires for BetPlacedEvent
+const sub = client.events.onBetPlaced((data) => {
+  console.log("Bet placed on", data.market.toBase58());
+});
+
+// Only fires for PayoutClaimedEvent
+const sub2 = client.events.onPayoutClaimed((data) => {
+  console.log("Payout:", data.payoutAmount);
+});
+```
+
+Available helpers: `onMarketCreated`, `onBetPlaced`, `onMarketResolved`, `onMarketCancelled`, `onCreatorWithdrawn`, `onPayoutClaimed`, `onRefundClaimed`.
+
+---
+
+## React hook
+
+For React applications, the `useMarketEvents` hook from `@cypher-zk/sdk/react` manages the subscription lifecycle automatically:
+
+```typescript
+import { useMarketEvents } from "@cypher-zk/sdk/react";
+import type { CypherEvent } from "@cypher-zk/sdk";
+
+function ActivityFeed() {
+  const events: CypherEvent[] = useMarketEvents();
+
+  return (
+    <ul>
+      {events.map((e, i) => (
+        <li key={i}>
+          <strong>{e.name}</strong>
+          {e.name === "BetPlacedEvent" && (
+            <span> — {e.data.market.toBase58().slice(0, 8)}… odds: {e.data.entryOdds.toString()}</span>
+          )}
+          {e.name === "PayoutClaimedEvent" && (
+            <span> — ${Number(e.data.payoutAmount) / 1_000_000} to {e.data.user.toBase58().slice(0, 8)}…</span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+---
+
+## Polling fallback
+
+In environments without WebSocket support (some serverless edge runtimes), use the polling approach:
+
+```typescript
+import { useQuery } from "@tanstack/react-query";
+import { useCypherClient } from "@cypher-zk/sdk/react";
+
+function usePolledEvents(refetchIntervalMs = 5_000) {
+  const client = useCypherClient();
+  return useQuery({
+    queryKey: ["cypher", "events", "polled"],
+    queryFn: () => client.events.pollEvents({ limit: 50 }),
+    refetchInterval: refetchIntervalMs,
+  });
+}
+```
+
+<Tip>
+  WebSocket connections on most RPC providers reconnect automatically when they drop. For extra resilience, key your `useEffect` dependency on `client.cluster.rpc` so the subscription is re-established if you switch RPC endpoints at runtime.
+
+  ```typescript
+  useEffect(() => {
+    const sub = client.events.subscribeAll(handler);
+    return () => sub.unsubscribe();
+  }, [client.cluster.rpc]); // re-subscribe on RPC URL change
+  ```
+</Tip>
+
+---
+
+## Parsing logs manually
+
+If you receive raw transaction logs from your own RPC listener, use `parseLogs` to extract typed events:
+
+```typescript
+import { parseLogs } from "@cypher-zk/sdk";
+
+const events = parseLogs(transaction.meta?.logMessages ?? []);
+for (const event of events) {
+  console.log(event.name, event.data);
+}
+```

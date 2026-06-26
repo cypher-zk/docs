@@ -1,0 +1,152 @@
+---
+title: "Bet Actions: Place Encrypted Predictions"
+sidebarTitle: "Bets"
+description: "Place privacy-preserving bets on Cypher markets. Your chosen side is encrypted with Arcium MPC before submission and never exposed on-chain."
+---
+
+`placeBet` is the primary way users interact with Cypher markets. Before the transaction is submitted, the SDK generates a fresh x25519 keypair, derives a shared secret with the Arcium MXE, and encrypts both the outcome side and stake amount using RescueCipher. Only the encrypted ciphertexts land on-chain — your chosen side remains private even after settlement.
+
+<Warning>
+  **Persist `userKeypair.privateKey` immediately after a successful bet.** This is the only key that can decrypt your position to reveal which side you bet on. There is no recovery path — the key is generated client-side and never transmitted to any server. If you lose it, your funds are still claimable, but you will not be able to pre-verify whether you are a winner before paying for the MPC computation.
+</Warning>
+
+## placeBet
+
+Places a single encrypted bet on a YesNo or MultiOutcome market.
+
+```typescript
+const { sig, userKeypair, betIndex } = await client.actions.placeBet({
+  market: marketId,
+  side: 1,             // 1 = YES for YesNo; outcome index for MultiOutcome
+  amount: 5_000_000,   // $5.00 USDC (6 decimals)
+  onProgress: (event) => console.log(event.stage, event.message),
+});
+
+// ⚠️ Persist the private key before the function returns
+await saveSecret(marketId, betIndex, userKeypair.privateKey);
+```
+
+### Parameters
+
+<ParamField path="market" type="PublicKey" required>
+  The market PDA to bet on. Must be in the `"betting"` phase (active and before `lockTimestamp`).
+</ParamField>
+
+<ParamField path="side" type="number" required>
+  The outcome index to bet on. For YesNo markets: `0` = NO, `1` = YES. For MultiOutcome markets: `0` through `outcomeCount - 1`, matching the labels returned by `getMarketOptionLabels`.
+</ParamField>
+
+<ParamField path="amount" type="number" required>
+  Stake in USDC lamports (6 decimal places). The minimum is `market.minBet` (typically `1_000_000` = $1). Protocol and LP fees are deducted from this amount; the remainder is your `netAmount` tracked on-chain.
+</ParamField>
+
+<ParamField path="onProgress" type="(stage: BetStage) => void">
+  Optional callback invoked at each stage of the bet flow. Use this to drive progress UI — see the stage reference below.
+</ParamField>
+
+### Return value
+
+<ResponseField name="sig" type="string">
+  Solana transaction signature for the `placePrivateBet` instruction.
+</ResponseField>
+
+<ResponseField name="userKeypair" type="CryptoKeyPair">
+  The freshly generated x25519 keypair used to encrypt this bet. **You must persist `userKeypair.privateKey`.** Key by `(market, betIndex)` so you can handle multiple bets on the same market.
+</ResponseField>
+
+<ResponseField name="betIndex" type="number">
+  Zero-based index of this bet within the `(market, user)` pair. Increments by one per bet. Needed when fetching the position PDA and when claiming.
+</ResponseField>
+
+---
+
+## Progress stages
+
+`onProgress` is called once for each stage in order. The `stage` field is one of:
+
+| Stage | Typical duration | What's happening |
+|---|---|---|
+| `"validating"` | ~10 ms | Checks market state, amount ≥ minBet, side in range |
+| `"fetching-state"` | ~200 ms (cached) | Loads GlobalState, MXE public key, address lookup table |
+| `"encrypting"` | ~50 ms | Generates x25519 keypair, derives shared secret, RescueCipher encrypts `[amount, side]` |
+| `"submitting"` | ~1–2 s | Sends the transaction and awaits slot confirmation |
+| `"awaiting-callback"` | 8–30 s | Arcium MPC nodes run the circuit and submit the callback |
+| `"refetching"` | ~300 ms | Re-fetches the position account to confirm on-chain state |
+| `"done"` | — | Flow complete; return value is ready |
+
+<Note>
+  The `"awaiting-callback"` stage involves a round-trip through the Arcium MPC cluster and typically takes **8–30 seconds** on devnet. Display a spinner or streaming label during this stage so users know the network is working, not stalled.
+</Note>
+
+---
+
+## Placing bets with progress UI
+
+```typescript
+import {
+  marketPhase,
+  getMarketOptionLabels,
+  parseCypherError,
+  type ActionProgressEvent,
+} from "@cypher-zk/sdk";
+
+async function bet(
+  client: CypherClient,
+  marketId: PublicKey,
+  question: string,
+  side: number,
+  amountUsdc: number,
+  onStage: (e: ActionProgressEvent) => void,
+) {
+  const market = await client.markets.fetchByPda(marketId);
+
+  if (marketPhase(market) !== "betting") {
+    throw new Error("Market is not accepting bets");
+  }
+
+  const labels = getMarketOptionLabels(market, question);
+  console.log(`Betting on "${labels[side]}" for $${amountUsdc / 1_000_000}`);
+
+  try {
+    const { sig, userKeypair, betIndex } = await client.actions.placeBet({
+      market: marketId,
+      side,
+      amount: amountUsdc,
+      onProgress: onStage,
+    });
+
+    // Immediately persist the private key
+    await saveSecret(marketId, betIndex, userKeypair.privateKey);
+
+    return { sig, betIndex };
+  } catch (err) {
+    const parsed = parseCypherError(err);
+    throw new Error(parsed ? `${parsed.name}: ${parsed.msg}` : String(err));
+  }
+}
+```
+
+---
+
+## Multi-bet example (v0.8.0+)
+
+A single user can place multiple bets on the same market. Each bet gets its own `betIndex` starting from `0`. Key your saved private key by both market and bet index:
+
+```typescript
+// First bet on this market
+const result1 = await client.actions.placeBet({ market, side: 1, amount: 2_000_000 });
+await saveSecret(market, result1.betIndex, result1.userKeypair.privateKey);
+// betIndex = 0
+
+// Second bet on the same market
+const result2 = await client.actions.placeBet({ market, side: 1, amount: 3_000_000 });
+await saveSecret(market, result2.betIndex, result2.userKeypair.privateKey);
+// betIndex = 1
+
+// Later, when claiming, you need each betIndex individually
+await client.actions.claimPayout({ market });
+```
+
+<Tip>
+  Use the `usePosition(market, user, betIndex)` React hook to fetch each individual position. Without a `betIndex` it defaults to `0n`, so you won't see subsequent bets unless you explicitly pass the index.
+</Tip>
