@@ -1,9 +1,10 @@
 ---
 title: "Changelog"
 description: "SDK version history and migration notes."
+mode: "wide"
 ---
 
-## v0.8.7 (current)
+<Update label="v0.8.7" description="Current release" tags={["Feature", "Breaking"]}>
 
 **Multi-bet support.** Users can now hold multiple positions per market. Each bet gets an auto-incrementing `betIndex`.
 
@@ -27,9 +28,9 @@ description: "SDK version history and migration notes."
 - Markets pass through `PendingResolution` (state `4`) between reveal and claim.
 - New constants: `MIN_CHALLENGE_PERIOD_SECS` (24h), `MAX_CHALLENGE_PERIOD_SECS` (48h).
 
----
+</Update>
 
-## v0.8.6
+<Update label="v0.8.6" tags={["Breaking"]}>
 
 **Breaking change.** The `betIndex` parameter was removed from the low-level `placePrivateBetYesnoIx` and `placePrivateBetMultiIx` instruction builders. The on-chain `user_state` PDA now tracks `next_bet_index` automatically.
 
@@ -37,20 +38,22 @@ description: "SDK version history and migration notes."
 - `readNextBetIndex(client, user)` - helper to fetch the current index when building low-level instructions. Not needed if you use `placeBetAction`.
 - High-level `placeBetAction` handles index tracking and retries automatically - no changes needed for callers using `client.actions.placeBet`.
 
----
+</Update>
 
-## v0.8.5
+<Update label="v0.8.5" tags={["Fix"]}>
 
 **Position decoder fix.** `fetchUserPositions` (and `client.positions.byUser`) now correctly handles mixed legacy 208-byte and current 216-byte position accounts.
 
 - Previously, a single legacy account in the result set would cause the entire query to fail silently (returning zero positions).
 - The fix uses per-account size-aware decoding instead of Anchor's all-or-nothing decoder.
 
----
+</Update>
 
-## v0.8.0 and earlier
+<Update label="v0.8.0 and earlier">
 
 - One position per user per market (no `betIndex`).
 - `saveSecret(market, secret)` took two arguments (no `betIndex`).
 - Questions always stored inline in `MarketAccount.inlineQuestion`.
 - No challenge window - markets moved directly from `PendingResolution` to `Resolved` after the MPC callback.
+
+</Update>

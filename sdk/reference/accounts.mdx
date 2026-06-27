@@ -109,7 +109,7 @@ Stores the question text for v0.2+ markets (separate PDA to save space in `Marke
 
 All fetchers are also available as methods on the `CypherClient` namespaces.
 
-```typescript
+```typescript TypeScript
 import {
   fetchMarket,
   fetchAllMarkets,
@@ -144,7 +144,7 @@ const withQuestions = markets.map(({ publicKey, account }) => ({
 
 ## Display helpers
 
-```typescript
+```typescript TypeScript
 import {
   marketPhase,
   marketStateName,
@@ -160,7 +160,7 @@ import {
 
 Returns a human-readable phase string based on the market's state and timestamps. Use this to drive UI state.
 
-```typescript
+```typescript TypeScript
 type MarketPhase =
   | "betting"
   | "awaitingResolve"
@@ -179,7 +179,7 @@ const phase = marketPhase(market.account);
 
 Pre-flight check before showing a cancel button.
 
-```typescript
+```typescript TypeScript
 const { ok, reason } = cancelEligibility(market.account);
 if (!ok) console.log("Cannot cancel:", reason);
 ```
@@ -188,7 +188,7 @@ if (!ok) console.log("Cannot cancel:", reason);
 
 Extracts option labels from a `[A|B|C]` question suffix.
 
-```typescript
+```typescript TypeScript
 const labels = parseEmbeddedOptions("Which chain leads TVL? [Solana|Ethereum|Base]");
 // ["Solana", "Ethereum", "Base"]
 
@@ -200,7 +200,7 @@ const sideLabel = labels[position.side] ?? `Option ${position.side}`;
 
 Detects the market account layout version from byte length.
 
-```typescript
+```typescript TypeScript
 const version = marketFormatVersion(accountData.length); // "v1" | "v2" | "v3" | null
 ```
 

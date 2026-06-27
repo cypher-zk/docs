@@ -7,7 +7,7 @@ description: "Create, cancel, and manage markets."
 
 Creates a YES/NO market. The SDK fetches the current `GlobalState` to auto-assign the next `marketId` and accepted mint - you do not need to provide these.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.createMarket({
   payer: walletPublicKey,
   creator: walletPublicKey,
@@ -84,7 +84,7 @@ console.log("Created market", result.marketId, result.signature);
 
 Creates a multi-outcome market with 2-4 named options. Embed the option labels in the question using a `[A|B|C]` suffix.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.createMarketMulti({
   payer: walletPublicKey,
   creator: walletPublicKey,
@@ -114,7 +114,7 @@ Takes the same parameters as `createMarket`, plus:
 
 Cancels a market with zero bets and returns the creator's bond. The SDK pre-flights eligibility client-side before sending the transaction.
 
-```typescript
+```typescript TypeScript
 import { cancelEligibility } from "@cypher-zk/sdk";
 
 // Pre-flight check before showing the cancel button
@@ -156,7 +156,7 @@ const result = await client.actions.cancelMarket({
 
 Pulls the creator's bond and accumulated LP fees from a resolved market.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.withdrawCreatorFunds({
   creator: walletPublicKey,
   marketId: 42n,

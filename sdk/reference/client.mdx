@@ -5,7 +5,7 @@ description: "Constructor options, namespace overview, and wallet helpers."
 
 `CypherClient` is the SDK entrypoint. Construction is cheap and synchronous - no RPC calls until you call a method.
 
-```typescript
+```typescript TypeScript
 import { Connection } from "@solana/web3.js";
 import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
 
@@ -157,7 +157,7 @@ Pass `{ refresh: true }` to bypass the cache: `client.globalState.fetch({ refres
 
 Wraps a `Keypair` as an Anchor-compatible `Wallet`. Use this for Node scripts, tests, and CLIs.
 
-```typescript
+```typescript TypeScript
 import { Keypair } from "@solana/web3.js";
 import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
 
@@ -173,7 +173,7 @@ const client = new CypherClient({
 
 Creates a wallet that can sign nothing - only fetch operations work. Calling `signTransaction` or `signAllTransactions` throws. Use it before the user connects their browser wallet.
 
-```typescript
+```typescript TypeScript
 import { readonlyWallet } from "@cypher-zk/sdk";
 
 const client = new CypherClient({

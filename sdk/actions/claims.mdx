@@ -3,11 +3,34 @@ title: "Claims"
 description: "Claim payouts and refunds after market resolution."
 ---
 
+Once a market is resolved or expired, winners and refund-eligible bettors each trigger an Arcium MPC computation to verify their encrypted position and compute the transfer amount - no local private key required.
+
+```mermaid
+sequenceDiagram
+    participant U as You
+    participant S as Solana
+    participant A as Arcium
+
+    Note over S: Market resolved (winner path)
+    U->>S: claimPayout (queues MPC verify)
+    A->>A: Verify position against revealed outcome
+    A->>S: Callback — USDC disbursed to wallet
+    Note over S: position.claimed = true
+
+    Note over S: Market unresolved (refund path)
+    U->>S: claimRefund (queues MPC verify)
+    A->>A: Verify position exists and is unclaimed
+    A->>S: Callback — net stake returned to wallet
+    Note over S: position.claimed = true
+```
+
+---
+
 ## claimPayout
 
 Claims the winner's USDC payout from a resolved market. The Arcium MPC circuit verifies the encrypted position against the revealed outcome and computes the transfer amount.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.claimPayout({
   payer: walletPublicKey,
   user: walletPublicKey,
@@ -20,7 +43,10 @@ console.log("Claimed:", result.signature);
 ```
 
 <Note>
-  You do not need the local private key to claim. The Arcium reveal circuit already decrypted the bet pools when the market resolved - the payout ratio is now public on-chain. The claim circuit uses your position's `netAmount` field (plaintext) to compute your share.
+  You do not need the local private key to claim. The Arcium reveal circuit
+  already decrypted the bet pools when the market resolved - the payout ratio is
+  now public on-chain. The claim circuit uses your position's `netAmount` field
+  (plaintext) to compute your share.
 </Note>
 
 ### Parameters
@@ -38,7 +64,10 @@ console.log("Claimed:", result.signature);
 </ParamField>
 
 <ParamField body="betIndex" type="bigint | number">
-  Which position to claim. Defaults to `0n`. Users who placed multiple bets on the same market must pass the specific index. Check `EncryptedPositionAccount.betIndex` on each position to find which ones to claim.
+  Which position to claim. Defaults to `0n`. Users who placed multiple bets on
+  the same market must pass the specific index. Check
+  `EncryptedPositionAccount.betIndex` on each position to find which ones to
+  claim.
 </ParamField>
 
 <ParamField body="computationOffset" type="bigint">
@@ -50,7 +79,8 @@ console.log("Claimed:", result.signature);
 </ParamField>
 
 <ParamField body="onProgress" type="ProgressCallback">
-  Progress stages: `validating → fetching-state → submitting → awaiting-callback → refetching → done`.
+  Progress stages: `validating → fetching-state → submitting → awaiting-callback
+  → refetching → done`.
 </ParamField>
 
 ### Return value
@@ -77,7 +107,7 @@ console.log("Claimed:", result.signature);
 
 Claims a full refund when the market's resolver never posted an outcome and the resolution deadline has passed.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.claimRefund({
   payer: walletPublicKey,
   user: walletPublicKey,
@@ -89,7 +119,9 @@ const result = await client.actions.claimRefund({
 Takes the same parameters as `claimPayout`. The market must be in `refundable` phase - past the resolution deadline with no outcome posted (`state === Unresolved`).
 
 <Note>
-  Refunds are available when the resolver fails to post within `DEFAULT_RESOLUTION_WINDOW_SECS` (7 days after close time). The refunded amount is the user's original net stake.
+  Refunds are available when the resolver fails to post within
+  `DEFAULT_RESOLUTION_WINDOW_SECS` (7 days after close time). The refunded
+  amount is the user's original net stake.
 </Note>
 
 ---
@@ -98,10 +130,10 @@ Takes the same parameters as `claimPayout`. The market must be in `refundable` p
 
 If a user placed multiple bets on the same market, each position must be claimed separately.
 
-```typescript
+```typescript TypeScript
 const positions = await client.positions.byUser(walletPublicKey);
 const forMarket = positions.filter(
-  (p) => p.account.market.equals(marketPda) && !p.account.claimed
+  (p) => p.account.market.equals(marketPda) && !p.account.claimed,
 );
 
 for (const { account } of forMarket) {
@@ -118,9 +150,9 @@ for (const { account } of forMarket) {
 
 ## Phase requirements
 
-| Action | Market phase | Market state |
-|---|---|---|
-| `claimPayout` | `claimable` | Resolved (2) |
+| Action        | Market phase | Market state   |
+| ------------- | ------------ | -------------- |
+| `claimPayout` | `claimable`  | Resolved (2)   |
 | `claimRefund` | `refundable` | Unresolved (3) |
 
 Call `marketPhase(market)` from `@cypher-zk/sdk` to check the current phase before showing claim buttons.

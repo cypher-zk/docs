@@ -11,7 +11,7 @@ The SDK emits 10 typed events via Anchor's log-based event system. All field nam
 
 Use `subscribeAll` to listen to every event in real time.
 
-```typescript
+```typescript TypeScript
 const sub = client.events.subscribeAll((event) => {
   switch (event.name) {
     case "BetPlacedEvent":
@@ -31,7 +31,7 @@ sub.unsubscribe();
 
 For type-narrowed callbacks, use the `subscribe` method or the `on*` convenience helpers.
 
-```typescript
+```typescript TypeScript
 // Generic typed subscription
 client.events.subscribe("MarketCreatedEvent", (data) => {
   // data is typed as MarketCreatedEvent
@@ -50,7 +50,7 @@ client.events.onPayoutClaimed((data) => {
 
 ### Subscription options
 
-```typescript
+```typescript TypeScript
 const sub = client.events.subscribeAll(callback, {
   commitment: "confirmed",   // "processed" | "confirmed" | "finalized"
   onError: (err, source) => {
@@ -70,7 +70,7 @@ const sub = client.events.subscribeAll(callback, {
 
 For environments without WebSocket support (some mobile wrappers, serverless functions):
 
-```typescript
+```typescript TypeScript
 const events = await client.events.pollEvents({
   before: "lastSignatureFromPreviousPoll",
   limit: 50,
@@ -85,7 +85,7 @@ const events = await client.events.pollEvents({
 
 If you already have a transaction's log array (e.g., from `sendAndConfirmTransaction`), parse events directly:
 
-```typescript
+```typescript TypeScript
 const events = client.events.parseLogs(txLogs);
 // events: CypherEvent[]
 ```

@@ -9,7 +9,7 @@ Mutation hooks wrap the high-level actions with TanStack Query's `useMutation`. 
 
 Places an encrypted private bet. See [Place bet](/sdk/actions/place-bet) for the full parameter reference.
 
-```typescript
+```typescript TypeScript
 import { usePlaceBet } from "@cypher-zk/sdk/react";
 import { saveSecret } from "@/lib/persist-secret";
 
@@ -44,7 +44,7 @@ placeBet.mutate({
 
 Creates a YesNo or MultiOutcome market.
 
-```typescript
+```typescript TypeScript
 import { useCreateMarket } from "@cypher-zk/sdk/react";
 
 const createMarket = useCreateMarket({
@@ -85,7 +85,7 @@ createMarket.mutate({
 
 Posts the real-world outcome after market close. Only the resolver wallet can call this.
 
-```typescript
+```typescript TypeScript
 import { useResolveMarket } from "@cypher-zk/sdk/react";
 
 const resolve = useResolveMarket();
@@ -106,7 +106,7 @@ resolve.mutate({
 
 Claims the winner's payout after a market becomes claimable.
 
-```typescript
+```typescript TypeScript
 import { useClaimPayout } from "@cypher-zk/sdk/react";
 
 const claim = useClaimPayout({
@@ -129,7 +129,7 @@ claim.mutate({
 
 Claims a refund when the resolver never posted an outcome.
 
-```typescript
+```typescript TypeScript
 import { useClaimRefund } from "@cypher-zk/sdk/react";
 
 const refund = useClaimRefund();
@@ -150,7 +150,7 @@ refund.mutate({
 
 Cancels a market with zero bets. Returns the creator's bond.
 
-```typescript
+```typescript TypeScript
 import { useCancelMarket } from "@cypher-zk/sdk/react";
 
 const cancel = useCancelMarket();
@@ -173,7 +173,7 @@ cancel.mutate({
 
 Withdraws bond plus accumulated creator fees after resolution.
 
-```typescript
+```typescript TypeScript
 import { useWithdrawCreatorFunds } from "@cypher-zk/sdk/react";
 
 const withdraw = useWithdrawCreatorFunds();
@@ -192,7 +192,7 @@ withdraw.mutate({
 
 These are v0.2+ only. See [Resolution](/sdk/actions/resolution) for the full flows.
 
-```typescript
+```typescript TypeScript
 import {
   useFlagResolution,
   useFinalizeResolution,

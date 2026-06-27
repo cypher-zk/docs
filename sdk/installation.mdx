@@ -5,9 +5,25 @@ description: "Install @cypher-zk/sdk and configure your bundler."
 
 ## Install
 
-```bash
+<CodeGroup>
+
+```bash bun
+bun add @cypher-zk/sdk @solana/web3.js
+```
+
+```bash npm
 npm install @cypher-zk/sdk @solana/web3.js
 ```
+
+```bash yarn
+yarn add @cypher-zk/sdk @solana/web3.js
+```
+
+```bash pnpm
+pnpm add @cypher-zk/sdk @solana/web3.js
+```
+
+</CodeGroup>
 
 <Warning>
   Pin `@solana/web3.js` to `^1.95.4`. The SDK is not compatible with `@solana/web3.js` v2 or `@solana/kit`.
@@ -32,7 +48,7 @@ The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not av
   <Tab title="Next.js (Turbopack)">
     Create `src/lib/buffer-polyfill.ts` and import it at the top of your root layout:
 
-    ```typescript
+    ```typescript TypeScript
     // src/lib/buffer-polyfill.ts
     import { Buffer } from "buffer";
     if (typeof window !== "undefined") {
@@ -40,14 +56,14 @@ The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not av
     }
     ```
 
-    ```typescript
+    ```typescript TypeScript
     // src/app/layout.tsx
     import "@/lib/buffer-polyfill";
     ```
 
     Then add to `next.config.ts`:
 
-    ```typescript
+    ```typescript TypeScript
     const nextConfig = {
       experimental: {
         turbo: {
@@ -60,7 +76,7 @@ The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not av
     ```
   </Tab>
   <Tab title="Next.js (Webpack)">
-    ```typescript
+    ```typescript TypeScript
     // next.config.ts
     const nextConfig = {
       webpack: (config) => {
@@ -76,12 +92,28 @@ The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not av
 
     Install the `buffer` package:
 
-    ```bash
+    <CodeGroup>
+
+    ```bash bun
+    bun add buffer
+    ```
+
+    ```bash npm
     npm install buffer
     ```
+
+    ```bash yarn
+    yarn add buffer
+    ```
+
+    ```bash pnpm
+    pnpm add buffer
+    ```
+
+    </CodeGroup>
   </Tab>
   <Tab title="Vite">
-    ```typescript
+    ```typescript TypeScript
     // vite.config.ts
     import { defineConfig } from "vite";
     import { nodePolyfills } from "vite-plugin-node-polyfills";
@@ -91,9 +123,25 @@ The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not av
     });
     ```
 
-    ```bash
+    <CodeGroup>
+
+    ```bash bun
+    bun add vite-plugin-node-polyfills
+    ```
+
+    ```bash npm
     npm install vite-plugin-node-polyfills
     ```
+
+    ```bash yarn
+    yarn add vite-plugin-node-polyfills
+    ```
+
+    ```bash pnpm
+    pnpm add vite-plugin-node-polyfills
+    ```
+
+    </CodeGroup>
   </Tab>
 </Tabs>
 

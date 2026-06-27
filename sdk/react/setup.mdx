@@ -7,15 +7,31 @@ The React integration lives in `@cypher-zk/sdk/react`. It wraps a `CypherClient`
 
 ## Install dependencies
 
-```bash
+<CodeGroup>
+
+```bash bun
+bun add @cypher-zk/sdk @solana/web3.js @tanstack/react-query
+```
+
+```bash npm
 npm install @cypher-zk/sdk @solana/web3.js @tanstack/react-query
 ```
+
+```bash yarn
+yarn add @cypher-zk/sdk @solana/web3.js @tanstack/react-query
+```
+
+```bash pnpm
+pnpm add @cypher-zk/sdk @solana/web3.js @tanstack/react-query
+```
+
+</CodeGroup>
 
 ## Set up the provider
 
 <Tabs>
   <Tab title="Next.js app router">
-    ```typescript
+    ```typescript TypeScript
     // src/providers/cypher-provider.tsx
     "use client";
 
@@ -63,7 +79,7 @@ npm install @cypher-zk/sdk @solana/web3.js @tanstack/react-query
 
     Add to your root layout:
 
-    ```typescript
+    ```typescript TypeScript
     // src/app/layout.tsx
     import "@/lib/buffer-polyfill";
     import { CypherProvider } from "@/providers/cypher-provider";
@@ -80,7 +96,7 @@ npm install @cypher-zk/sdk @solana/web3.js @tanstack/react-query
     ```
   </Tab>
   <Tab title="Vite / CRA">
-    ```typescript
+    ```typescript TypeScript
     // src/main.tsx
     import { Connection } from "@solana/web3.js";
     import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
@@ -113,7 +129,7 @@ npm install @cypher-zk/sdk @solana/web3.js @tanstack/react-query
 
 Use `readonlyWallet` when the user isn't connected yet. It lets fetch hooks run without a signer - mutation hooks will throw if called.
 
-```typescript
+```typescript TypeScript
 import { readonlyWallet } from "@cypher-zk/sdk";
 
 const client = new CypherClient({
@@ -127,7 +143,7 @@ const client = new CypherClient({
 
 Inside any component, `useCypherClient()` returns the client from context:
 
-```typescript
+```typescript TypeScript
 import { useCypherClient } from "@cypher-zk/sdk/react";
 
 function MyComponent() {
@@ -139,6 +155,24 @@ function MyComponent() {
 <Note>
   `useCypherClient()` throws if called outside `<CypherProvider>`. Make sure the hook is inside the provider tree.
 </Note>
+
+## Building with AI
+
+If you use an AI coding agent (Claude, Cursor, etc.), the `cypher-skill` gives it deep context about the SDK - provider wiring, hook patterns, encryption flows, and common pitfalls. Add it to your project:
+
+<CodeGroup>
+
+```bash npx
+npx skills add cypher-zk/cypher-skill
+```
+
+```bash bunx
+bunx skills add cypher-zk/cypher-skill
+```
+
+</CodeGroup>
+
+The skill covers the full frontend surface: `CypherProvider` setup, all React hooks, `onProgress` UI patterns, x25519 secret persistence, and market phase gating.
 
 ## What's next
 

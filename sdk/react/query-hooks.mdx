@@ -9,7 +9,7 @@ All query hooks are built on TanStack Query v5. They return `{ data, isLoading, 
 
 Fetches the protocol config: fee rates and accepted USDC mint.
 
-```typescript
+```typescript TypeScript
 import { useGlobalState } from "@cypher-zk/sdk/react";
 
 const { data: globalState } = useGlobalState();
@@ -32,7 +32,7 @@ Cache TTL: 30 seconds.
 
 Fetches all markets. Optionally filter by creator or state.
 
-```typescript
+```typescript TypeScript
 import { useMarkets } from "@cypher-zk/sdk/react";
 import { PublicKey } from "@solana/web3.js";
 
@@ -50,7 +50,7 @@ Each item in the array is `{ publicKey: PublicKey, account: MarketAccount }`.
 
 For markets created with SDK v0.2+, the question lives in a separate `MarketQuestion` account. Use `fetchMarketQuestions` to hydrate them in batch:
 
-```typescript
+```typescript TypeScript
 import { fetchMarketQuestions } from "@cypher-zk/sdk";
 
 const client = useCypherClient();
@@ -77,7 +77,7 @@ Cache TTL: 10 seconds. Pass `refetchInterval: 4000` for live odds updates.
 
 Fetches a single market by ID.
 
-```typescript
+```typescript TypeScript
 import { useMarket } from "@cypher-zk/sdk/react";
 
 const { data: market } = useMarket(marketId); // bigint | number
@@ -85,7 +85,7 @@ const { data: market } = useMarket(marketId); // bigint | number
 
 Use the `enabled` option to gate on prerequisites:
 
-```typescript
+```typescript TypeScript
 const { data: market } = useMarket(marketId, {
   enabled: !!marketId,
   refetchInterval: 5000,
@@ -100,7 +100,7 @@ Cache TTL: 10 seconds.
 
 Fetches all positions (bets) for a wallet across all markets.
 
-```typescript
+```typescript TypeScript
 import { useUserPositions } from "@cypher-zk/sdk/react";
 import { PublicKey } from "@solana/web3.js";
 
@@ -124,7 +124,7 @@ Cache TTL: 5 seconds.
 
 Fetches a single position by market, user, and bet index.
 
-```typescript
+```typescript TypeScript
 import { usePosition } from "@cypher-zk/sdk/react";
 
 const { data: position } = usePosition(
@@ -154,7 +154,7 @@ Cache TTL: 5 seconds.
 
 If you send raw instructions outside of mutation hooks, invalidate the cache yourself using the query key factories:
 
-```typescript
+```typescript TypeScript
 import { marketKeys, positionKeys } from "@cypher-zk/sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 

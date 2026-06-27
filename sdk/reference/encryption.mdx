@@ -5,11 +5,34 @@ description: "Bet encryption, decryption, and key persistence."
 
 Cypher uses x25519 Diffie-Hellman key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium MPC nodes run the reveal circuit.
 
+```mermaid
+sequenceDiagram
+    participant B as Browser
+    participant S as Solana
+    participant A as Arcium MXE
+
+    Note over B,A: Encrypt path (bet time)
+    B->>A: fetchMxePublicKey()
+    A-->>B: mxePublicKey
+    B->>B: createUserKeypair()
+    B->>B: ECDH → sharedSecret
+    B->>B: encryptBetInput(amount, side)
+    B->>S: place_private_bet (ciphertexts + userPubkey stored)
+
+    Note over B,A: Decrypt path (display time)
+    B->>B: loadSecret(market, betIndex)
+    B->>A: fetchMxePublicKey()
+    A-->>B: mxePublicKey
+    B->>B: ECDH → sharedSecret → cipher
+    B->>B: decryptBetInput(encrypted, cipher, nonce)
+    B->>B: { amount, side } displayed
+```
+
 ---
 
 ## Key generation
 
-```typescript
+```typescript TypeScript
 import { createUserKeypair } from "@cypher-zk/sdk";
 
 const keypair = createUserKeypair();
@@ -27,7 +50,7 @@ The high-level `placeBetAction` generates a keypair automatically. Only call `cr
 
 ## Shared secret derivation
 
-```typescript
+```typescript TypeScript
 import { deriveSharedSecret } from "@cypher-zk/sdk";
 
 const sharedSecret = deriveSharedSecret(userPrivateKey, mxePublicKey);
@@ -39,7 +62,7 @@ This is standard x25519 ECDH. The user's private key + the MXE's (Arcium node's)
 
 ## Cipher construction
 
-```typescript
+```typescript TypeScript
 import { createCipher, fetchMxePublicKey } from "@cypher-zk/sdk";
 
 const mxePublicKey = await fetchMxePublicKey(client);
@@ -52,7 +75,7 @@ const cipher = createCipher(userPrivateKey, mxePublicKey);
 
 ## Encrypting bet inputs
 
-```typescript
+```typescript TypeScript
 import { encryptBetInput } from "@cypher-zk/sdk";
 
 const encrypted = encryptBetInput(
@@ -77,7 +100,7 @@ To display an encrypted position's stake and side, you need:
 2. The current MXE public key
 3. The position's nonce (on-chain as a `u128` bigint)
 
-```typescript
+```typescript TypeScript
 import {
   loadSecret,
   fetchMxePublicKey,
@@ -116,7 +139,7 @@ async function decryptPosition(
 
 Use `saveSecret` / `loadSecret` to persist the private key in `localStorage`. The key format is `cypher:pos:{marketBase58}:{betIndex}`.
 
-```typescript
+```typescript TypeScript
 // Save immediately after placeBet
 saveSecret(result.position!.market, result.betIndex, result.userKeypair.privateKey);
 
@@ -128,7 +151,7 @@ const privateKey = loadSecret(marketPda, betIndex);
   Call `saveSecret` in `onSuccess` of `placeBet`, before any navigation or redirect. If the tab closes before saving, the user can still claim their payout (that doesn't need the key), but the bet side and stake won't be visible in the UI until the market resolves and pools are revealed.
 </Warning>
 
-```typescript
+```typescript TypeScript
 // Example: saveSecret / loadSecret implementation
 const storageKey = (market: PublicKey, betIndex: bigint) =>
   `cypher:pos:${market.toBase58()}:${betIndex}`;

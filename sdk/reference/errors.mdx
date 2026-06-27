@@ -7,7 +7,7 @@ description: "Parse Cypher program errors and the full error code table."
 
 Use `parseCypherError` to extract a structured error from any thrown value. It handles all the ways Anchor can surface program errors - direct `AnchorError` instances, log lines, and raw transaction simulation failures.
 
-```typescript
+```typescript TypeScript
 import { parseCypherError } from "@cypher-zk/sdk";
 
 try {
@@ -26,7 +26,7 @@ try {
 
 ### Return type
 
-```typescript
+```typescript TypeScript
 interface ParsedCypherError {
   code: number;   // e.g., 6000
   name: string;   // e.g., "MarketNotActive"
@@ -100,7 +100,7 @@ All Cypher errors start at Anchor's `6000` offset.
 
 **Check for a specific error:**
 
-```typescript
+```typescript TypeScript
 import { parseCypherError, CypherErrorCode } from "@cypher-zk/sdk";
 
 const parsed = parseCypherError(err);
@@ -111,7 +111,7 @@ if (parsed?.code === CypherErrorCode.BetTooSmall) {
 
 **Handle in React:**
 
-```typescript
+```typescript TypeScript
 import { usePlaceBet, parseCypherError } from "@cypher-zk/sdk/react";
 
 const placeBet = usePlaceBet({

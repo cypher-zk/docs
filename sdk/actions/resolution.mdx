@@ -29,7 +29,7 @@ sequenceDiagram
 
 Posts the real-world outcome and triggers the Arcium MPC reveal circuit. Only the wallet set as `resolver` at market creation can call this.
 
-```typescript
+```typescript TypeScript
 const result = await client.actions.resolveMarket({
   payer: resolverPublicKey,
   resolver: resolverPublicKey,
@@ -91,7 +91,7 @@ After this call the market moves to `PendingResolution` (state `4`). The Arcium 
 
 Flags a pending resolution as disputed during the challenge window. Permissionless - anyone can call this if they believe the outcome is wrong.
 
-```typescript
+```typescript TypeScript
 const flag = await client.actions.flagResolution({
   flagger: walletPublicKey,
   marketId: 42n,
@@ -114,7 +114,7 @@ After flagging, the market enters a `disputed` state. Payouts are blocked until 
 
 Finalizes a pending resolution after the challenge window elapses undisputed. Permissionless - anyone can call this to move the market to `Resolved`.
 
-```typescript
+```typescript TypeScript
 const finalize = await client.actions.finalizeResolution({
   caller: walletPublicKey,
   marketId: 42n,
@@ -137,7 +137,7 @@ After this call the market state becomes `Resolved` and `claim_deadline` is set,
 
 Overrides the outcome on a disputed market. Admin-only.
 
-```typescript
+```typescript TypeScript
 const override = await client.actions.adminOverrideResolution({
   admin: adminPublicKey,
   marketId: 42n,

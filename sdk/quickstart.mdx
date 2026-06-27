@@ -7,7 +7,7 @@ description: "Initialize CypherClient and place your first private bet."
   <Tab title="Node.js">
     A self-contained script that lists markets and places a bet using a keypair wallet.
 
-    ```typescript
+    ```typescript TypeScript
     import { Connection, Keypair } from "@solana/web3.js";
     import {
       CypherClient,
@@ -63,7 +63,7 @@ description: "Initialize CypherClient and place your first private bet."
 
     First, wrap your app with `CypherProvider` - see [React setup](/sdk/react/setup).
 
-    ```typescript
+    ```typescript TypeScript
     import { usePlaceBet, useMarkets } from "@cypher-zk/sdk/react";
     import { marketPhase } from "@cypher-zk/sdk";
     import { saveSecret } from "@/lib/persist-secret";

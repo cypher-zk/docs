@@ -5,7 +5,7 @@ description: "Protocol constants, enums, and PDA derivation helpers."
 
 ## Constants
 
-```typescript
+```typescript TypeScript
 import {
   PROGRAM_ID,
   MIN_BET_USDC,
@@ -47,7 +47,7 @@ import {
 | `3` | `Unresolved` | Resolver missed deadline, refunds open |
 | `4` | `PendingResolution` | MPC reveal ran, in challenge window |
 
-```typescript
+```typescript TypeScript
 import { MarketState } from "@cypher-zk/sdk";
 
 if (market.state === MarketState.Active) { /* ... */ }
@@ -78,7 +78,7 @@ if (market.state === MarketState.Active) { /* ... */ }
 
 All PDA derivation helpers accept an optional `programId` argument for non-default deployments.
 
-```typescript
+```typescript TypeScript
 import {
   globalStatePda,
   marketPda,
@@ -104,7 +104,7 @@ import {
 
 ### Usage
 
-```typescript
+```typescript TypeScript
 const [marketAddress, bump] = marketPda(42n);
 const [positionAddress] = positionPda(marketAddress, userPublicKey, 0n);
 ```
