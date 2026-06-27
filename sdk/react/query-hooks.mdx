@@ -14,10 +14,10 @@ import { useGlobalState } from "@cypher-zk/sdk/react";
 
 const { data: globalState } = useGlobalState();
 
-// globalState.protocolFeeRate    — protocol fee in basis points
-// globalState.lpFeeRate          — LP (creator) fee in basis points
-// globalState.acceptedMint       — PublicKey of the accepted USDC mint
-// globalState.protocolTreasury   — PublicKey of the treasury
+// globalState.protocolFeeRate    - protocol fee in basis points
+// globalState.lpFeeRate          - LP (creator) fee in basis points
+// globalState.acceptedMint       - PublicKey of the accepted USDC mint
+// globalState.protocolTreasury   - PublicKey of the treasury
 ```
 
 <Note>
@@ -110,10 +110,10 @@ const { data: positions } = useUserPositions(
 );
 
 // Each item: { publicKey: PublicKey, account: EncryptedPositionAccount }
-// account.betIndex    — which bet this is (0, 1, 2, ...)
-// account.netAmount   — stake after fees (plaintext bigint)
-// account.entryOdds   — locked-in odds × ODDS_SCALE (1e9)
-// account.claimed     — whether payout was already claimed
+// account.betIndex    - which bet this is (0, 1, 2, ...)
+// account.netAmount   - stake after fees (plaintext bigint)
+// account.entryOdds   - locked-in odds × ODDS_SCALE (1e9)
+// account.claimed     - whether payout was already claimed
 ```
 
 Cache TTL: 5 seconds.

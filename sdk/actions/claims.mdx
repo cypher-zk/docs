@@ -14,13 +14,13 @@ sequenceDiagram
     Note over S: Market resolved (winner path)
     U->>S: claimPayout (queues MPC verify)
     A->>A: Verify position against revealed outcome
-    A->>S: Callback — USDC disbursed to wallet
+    A->>S: Callback - USDC disbursed to wallet
     Note over S: position.claimed = true
 
     Note over S: Market unresolved (refund path)
     U->>S: claimRefund (queues MPC verify)
     A->>A: Verify position exists and is unclaimed
-    A->>S: Callback — net stake returned to wallet
+    A->>S: Callback - net stake returned to wallet
     Note over S: position.claimed = true
 ```
 
@@ -35,7 +35,7 @@ const result = await client.actions.claimPayout({
   payer: walletPublicKey,
   user: walletPublicKey,
   marketId: 42n,
-  betIndex: 0n, // which bet to claim — defaults to 0n
+  betIndex: 0n, // which bet to claim - defaults to 0n
   onProgress: ({ stage }) => setStatus(stage),
 });
 

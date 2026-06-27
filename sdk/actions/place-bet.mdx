@@ -16,7 +16,7 @@ sequenceDiagram
     Note over S: Position account created\nciphertexts stored on-chain
     S->>A: MPC computation queued
     A->>A: Compute entry odds
-    A->>S: Callback — entryOdds written to position
+    A->>S: Callback - entryOdds written to position
     S-->>B: Await callback resolves
     B->>B: saveSecret(market, betIndex, privateKey)
 ```
@@ -107,8 +107,8 @@ saveSecret(result.position!.market, result.betIndex, result.userKeypair.privateK
 
   ```typescript
   interface UserCryptoKeypair {
-    privateKey: Uint8Array; // 32 bytes — persist this
-    publicKey: Uint8Array;  // 32 bytes — stored on-chain
+    privateKey: Uint8Array; // 32 bytes - persist this
+    publicKey: Uint8Array;  // 32 bytes - stored on-chain
   }
   ```
 </ResponseField>

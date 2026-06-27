@@ -15,8 +15,8 @@ const result = await client.actions.createMarket({
   closeTime: BigInt(Math.floor(Date.now() / 1000) + 7 * 86400), // 7 days from now
   category: 0, // Crypto
   resolver: walletPublicKey, // who can call resolveMarket
-  bondAmount: 20_000_000n,  // $20 USDC — minimum is MIN_CREATOR_BOND
-  challengePeriod: 86400n,  // 24 hours — minimum is MIN_CHALLENGE_PERIOD_SECS
+  bondAmount: 20_000_000n,  // $20 USDC - minimum is MIN_CREATOR_BOND
+  challengePeriod: 86400n,  // 24 hours - minimum is MIN_CHALLENGE_PERIOD_SECS
 });
 
 console.log("Created market", result.marketId, result.signature);

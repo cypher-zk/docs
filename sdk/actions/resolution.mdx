@@ -17,8 +17,8 @@ sequenceDiagram
     R->>S: resolveMarket (queues MPC reveal)
     A->>S: Reveal callback (pools + outcome now plaintext)
     Note over S: Market enters PendingResolution
-    Note over S: Challenge window (24–48 h)
-    F->>S: flagResolution (optional — if disputed)
+    Note over S: Challenge window (24-48 h)
+    F->>S: flagResolution (optional - if disputed)
     F->>S: finalizeResolution (after window elapses)
     Note over S: Market becomes Resolved → claimable
 ```

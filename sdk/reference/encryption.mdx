@@ -3,7 +3,7 @@ title: "Encryption"
 description: "Bet encryption, decryption, and key persistence."
 ---
 
-Cypher uses <Tooltip tip="An elliptic-curve Diffie-Hellman function on Curve25519. Produces a 32-byte shared secret from two keypairs — only the two parties holding the private keys can derive it.">x25519</Tooltip> key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium <Tooltip tip="Multi-Party Computation: multiple nodes jointly compute a result over encrypted inputs without any single node seeing the raw data.">MPC</Tooltip> nodes run the reveal circuit.
+Cypher uses <Tooltip tip="An elliptic-curve Diffie-Hellman function on Curve25519. Produces a 32-byte shared secret from two keypairs - only the two parties holding the private keys can derive it.">x25519</Tooltip> key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium <Tooltip tip="Multi-Party Computation: multiple nodes jointly compute a result over encrypted inputs without any single node seeing the raw data.">MPC</Tooltip> nodes run the reveal circuit.
 
 ```mermaid
 sequenceDiagram
@@ -36,8 +36,8 @@ sequenceDiagram
 import { createUserKeypair } from "@cypher-zk/sdk";
 
 const keypair = createUserKeypair();
-// keypair.privateKey — 32-byte x25519 private key (persist this)
-// keypair.publicKey  — 32-byte x25519 public key (stored on-chain)
+// keypair.privateKey - 32-byte x25519 private key (persist this)
+// keypair.publicKey  - 32-byte x25519 public key (stored on-chain)
 ```
 
 `createUserKeypair()` uses `crypto.getRandomValues` - browser-safe and works in Node 20+.
@@ -83,10 +83,10 @@ const encrypted = encryptBetInput(
   cipher,
 );
 
-// encrypted.encryptedAmount — 32-byte Uint8Array
-// encrypted.encryptedSide  — 32-byte Uint8Array
-// encrypted.nonce          — bigint (u128)
-// encrypted.nonceBytes     — 16-byte Uint8Array
+// encrypted.encryptedAmount - 32-byte Uint8Array
+// encrypted.encryptedSide  - 32-byte Uint8Array
+// encrypted.nonce          - bigint (u128)
+// encrypted.nonceBytes     - 16-byte Uint8Array
 ```
 
 `amount` is the **net** stake after fees, not the gross bet. `placeBetAction` computes this automatically. If you are building instructions directly, compute fees via `computeFees(grossAmount, { protocolFeeRateBps, lpFeeRateBps })`.

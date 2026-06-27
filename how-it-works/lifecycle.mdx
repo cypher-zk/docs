@@ -19,7 +19,7 @@ sequenceDiagram
     R->>S: Post outcome
     A->>A: Decrypt all bets (~10 sec)
     A->>S: Write payout results
-    Note over S: Challenge window (24–48 h)
+    Note over S: Challenge window (24-48 h)
     Note over S: Market becomes Claimable
     B->>S: Claim payout
 ```
@@ -28,7 +28,7 @@ sequenceDiagram
 |---|---|---|
 | **Betting** | Market is open. | Place a bet |
 | **Awaiting resolve** | Betting closed. Waiting for the resolver. | Wait |
-| **Pending resolution** | Outcome posted. Challenge window open (24–48 h). | Flag if wrong |
+| **Pending resolution** | Outcome posted. Challenge window open (24-48 h). | Flag if wrong |
 | **Disputed** | Someone flagged the result. Admin reviewing. | Wait |
 | **Claimable** | Challenge window passed. Payouts available. | Claim if you won |
 | **Refundable** | Resolver never posted. Stakes returnable. | Claim refund |
@@ -41,7 +41,7 @@ For most markets:
 1. Betting opens when the market is created.
 2. The close time passes - no new bets.
 3. The resolver posts the outcome. Arcium decrypts every bet and computes payouts (≈10 seconds).
-4. A 24–48 hour challenge window opens. No flags → market enters **Claimable**.
+4. A 24-48 hour challenge window opens. No flags → market enters **Claimable**.
 5. Winners claim USDC.
 
 ## Edge cases

@@ -84,7 +84,7 @@ The phase the market is in is shown on the market's page and on the position car
 If you're using the SDK directly, on-chain errors come back as numeric codes. The most common ones:
 
 <details>
-<summary>Error code reference (6000–6044)</summary>
+<summary>Error code reference (6000-6044)</summary>
 
 | Code | Name | What it means |
 |---|---|---|
@@ -98,7 +98,7 @@ If you're using the SDK directly, on-chain errors come back as numeric codes. Th
 | 6027 | `RefundPeriodExpired` | Past the refund deadline. The position is forfeited. |
 | 6029 | `ComputationVerificationFailed` | Off-chain network couldn't verify. Not recoverable; report the tx sig. |
 | 6033 | `WrongMint` | The USDC mint on the position is wrong. Read mint from `globalState.acceptedMint`. |
-| 6036 | `InvalidChallengePeriod` | Challenge period outside the 24–48h range. |
+| 6036 | `InvalidChallengePeriod` | Challenge period outside the 24-48h range. |
 | 6037 | `BondTooSmall` | Bond is below the `$20` minimum. |
 | 6038 | `NotPendingResolution` | Called flag/finalize/override on a market in the wrong phase. |
 | 6039 | `ChallengePeriodNotElapsed` | Called `finalizeResolution` too early. |

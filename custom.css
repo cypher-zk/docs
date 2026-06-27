@@ -14,3 +14,91 @@
 #sidebar {
   z-index: 99 !important;
 }
+
+/* ── Mermaid dark-mode color fix ────────────────────────────────────────────
+   Mintlify uses Mermaid's "neutral" (gray) theme in dark mode by default.
+   Light mode has: lavender actor boxes + yellow note boxes + purple lifelines.
+   Dark mode mirrors that palette shifted for dark backgrounds.                */
+
+/* Sequence — participant boxes (lavender → dark slate with muted indigo border) */
+.dark [data-component-name="mermaid-container"] svg .actor {
+  fill: #18172a !important;
+  stroke: #5b4e8a !important;
+}
+.dark [data-component-name="mermaid-container"] svg text.actor {
+  fill: #c4b5fd !important;
+}
+
+/* Sequence — note/label boxes (yellow → dark amber, keeps yellow character) */
+.dark [data-component-name="mermaid-container"] svg rect.note {
+  fill: #201900 !important;
+  stroke: #a07808 !important;
+}
+.dark [data-component-name="mermaid-container"] svg text.noteText {
+  fill: #fcd34d !important;
+}
+
+/* Sequence — message text on arrows */
+.dark [data-component-name="mermaid-container"] svg .messageText {
+  fill: #cbd5e1 !important;
+  stroke: none !important;
+}
+
+/* Sequence — lifelines (vertical lines under participants) */
+.dark [data-component-name="mermaid-container"] svg .actor-line {
+  stroke: #4a4070 !important;
+}
+
+/* Sequence — horizontal message arrows */
+.dark [data-component-name="mermaid-container"] svg .messageLine0,
+.dark [data-component-name="mermaid-container"] svg .messageLine1 {
+  stroke: #7c6eb4 !important;
+}
+
+/* Sequence — arrowhead markers */
+.dark [data-component-name="mermaid-container"] svg marker path {
+  fill: #7c6eb4 !important;
+  stroke: #7c6eb4 !important;
+}
+
+/* Sequence — loop / alt boxes */
+.dark [data-component-name="mermaid-container"] svg .loopLine {
+  stroke: #5b4e8a !important;
+  fill: #18172a !important;
+}
+.dark [data-component-name="mermaid-container"] svg .loopText,
+.dark [data-component-name="mermaid-container"] svg .loopText > tspan {
+  fill: #c4b5fd !important;
+}
+
+/* Flowchart — nodes (dark slate fill, muted indigo border) */
+.dark [data-component-name="mermaid-container"] svg .node rect,
+.dark [data-component-name="mermaid-container"] svg .node circle,
+.dark [data-component-name="mermaid-container"] svg .node ellipse,
+.dark [data-component-name="mermaid-container"] svg .node polygon,
+.dark [data-component-name="mermaid-container"] svg .node path {
+  fill: #18172a !important;
+  stroke: #5b4e8a !important;
+}
+.dark [data-component-name="mermaid-container"] svg .node .label foreignObject div {
+  color: #c4b5fd !important;
+}
+
+/* Flowchart — terminal nodes (rounded pill shapes, amber like notes) */
+.dark [data-component-name="mermaid-container"] svg .node.default rect,
+.dark [data-component-name="mermaid-container"] svg .cluster rect {
+  fill: #201900 !important;
+  stroke: #a07808 !important;
+}
+
+/* Flowchart — edges */
+.dark [data-component-name="mermaid-container"] svg .edgePath .path {
+  stroke: #5b4e8a !important;
+}
+.dark [data-component-name="mermaid-container"] svg .edgeLabel .label rect {
+  fill: #18172a !important;
+}
+.dark [data-component-name="mermaid-container"] svg .edgeLabel .label span {
+  color: #a898d8 !important;
+  background: transparent !important;
+}

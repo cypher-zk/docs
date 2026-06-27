@@ -64,7 +64,7 @@ createMarket.mutate({
   challengePeriod: 86400n, // 24 hours
 });
 
-// MultiOutcome — embed options in the question with [A|B|C] suffix
+// MultiOutcome - embed options in the question with [A|B|C] suffix
 createMarket.mutate({
   payer: walletPublicKey,
   creator: walletPublicKey,
@@ -207,7 +207,7 @@ flag.mutate({ flagger: walletPublicKey, marketId: 42n });
 const finalize = useFinalizeResolution();
 finalize.mutate({ caller: walletPublicKey, marketId: 42n });
 
-// Admin only — overrides a disputed resolution
+// Admin only - overrides a disputed resolution
 const override = useAdminOverrideResolution();
 override.mutate({ admin: walletPublicKey, marketId: 42n, outcomeValue: 0 });
 ```
