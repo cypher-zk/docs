@@ -1,0 +1,165 @@
+---
+title: "Encryption"
+description: "Bet encryption, decryption, and key persistence."
+---
+
+Cypher uses x25519 Diffie-Hellman key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium MPC nodes run the reveal circuit.
+
+---
+
+## Key generation
+
+```typescript
+import { createUserKeypair } from "@cypher-zk/sdk";
+
+const keypair = createUserKeypair();
+// keypair.privateKey — 32-byte x25519 private key (persist this)
+// keypair.publicKey  — 32-byte x25519 public key (stored on-chain)
+```
+
+`createUserKeypair()` uses `crypto.getRandomValues` - browser-safe and works in Node 20+.
+
+**Use a fresh keypair per bet.** Reusing a keypair across bets doesn't break the cipher (nonces rotate), but it leaks that two positions belong to the same wallet to anyone watching `EncryptedPosition.userPubkey` on-chain.
+
+The high-level `placeBetAction` generates a keypair automatically. Only call `createUserKeypair` manually if you want to pre-generate and show it to the user before the bet is submitted.
+
+---
+
+## Shared secret derivation
+
+```typescript
+import { deriveSharedSecret } from "@cypher-zk/sdk";
+
+const sharedSecret = deriveSharedSecret(userPrivateKey, mxePublicKey);
+```
+
+This is standard x25519 ECDH. The user's private key + the MXE's (Arcium node's) public key → a 32-byte shared secret. Only the MXE can derive the same secret from its side, so only Arcium nodes can decrypt positions.
+
+---
+
+## Cipher construction
+
+```typescript
+import { createCipher, fetchMxePublicKey } from "@cypher-zk/sdk";
+
+const mxePublicKey = await fetchMxePublicKey(client);
+const cipher = createCipher(userPrivateKey, mxePublicKey);
+```
+
+`fetchMxePublicKey` is cached per `CypherClient` instance. The MXE key rotates only during Arcium cluster upgrades.
+
+---
+
+## Encrypting bet inputs
+
+```typescript
+import { encryptBetInput } from "@cypher-zk/sdk";
+
+const encrypted = encryptBetInput(
+  { amount: netAmount, side: 1 },
+  cipher,
+);
+
+// encrypted.encryptedAmount — 32-byte Uint8Array
+// encrypted.encryptedSide  — 32-byte Uint8Array
+// encrypted.nonce          — bigint (u128)
+// encrypted.nonceBytes     — 16-byte Uint8Array
+```
+
+`amount` is the **net** stake after fees, not the gross bet. `placeBetAction` computes this automatically. If you are building instructions directly, compute fees via `computeFees(grossAmount, { protocolFeeRateBps, lpFeeRateBps })`.
+
+---
+
+## Decrypt flow
+
+To display an encrypted position's stake and side, you need:
+1. The user's x25519 private key (from `saveSecret` / `loadSecret`)
+2. The current MXE public key
+3. The position's nonce (on-chain as a `u128` bigint)
+
+```typescript
+import {
+  loadSecret,
+  fetchMxePublicKey,
+  createCipher,
+  decryptBetInput,
+  bigIntToLeBytes,
+} from "@cypher-zk/sdk";
+
+async function decryptPosition(
+  client: CypherClient,
+  position: EncryptedPositionAccount,
+): Promise<{ amount: bigint; side: number } | null> {
+  const privateKey = loadSecret(position.market, position.betIndex);
+  if (!privateKey) return null; // key was never saved or was cleared
+
+  const mxePublicKey = await fetchMxePublicKey(client);
+  if (!mxePublicKey) return null;
+
+  const cipher = createCipher(privateKey, mxePublicKey);
+  const nonceBytes = bigIntToLeBytes(position.nonce, 16);
+
+  return decryptBetInput(
+    {
+      encryptedAmount: position.encryptedAmount,
+      encryptedSide: position.encryptedSide,
+    },
+    cipher,
+    nonceBytes,
+  );
+}
+```
+
+---
+
+## Key persistence
+
+Use `saveSecret` / `loadSecret` to persist the private key in `localStorage`. The key format is `cypher:pos:{marketBase58}:{betIndex}`.
+
+```typescript
+// Save immediately after placeBet
+saveSecret(result.position!.market, result.betIndex, result.userKeypair.privateKey);
+
+// Load to decrypt
+const privateKey = loadSecret(marketPda, betIndex);
+```
+
+<Warning>
+  Call `saveSecret` in `onSuccess` of `placeBet`, before any navigation or redirect. If the tab closes before saving, the user can still claim their payout (that doesn't need the key), but the bet side and stake won't be visible in the UI until the market resolves and pools are revealed.
+</Warning>
+
+```typescript
+// Example: saveSecret / loadSecret implementation
+const storageKey = (market: PublicKey, betIndex: bigint) =>
+  `cypher:pos:${market.toBase58()}:${betIndex}`;
+
+function saveSecret(market: PublicKey, betIndex: bigint, secret: Uint8Array) {
+  const hex = Array.from(secret, (b) => b.toString(16).padStart(2, "0")).join("");
+  localStorage.setItem(storageKey(market, betIndex), hex);
+}
+
+function loadSecret(market: PublicKey, betIndex: bigint): Uint8Array | null {
+  const hex = localStorage.getItem(storageKey(market, betIndex));
+  if (!hex) return null;
+  const arr = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < arr.length; i++) {
+    arr[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return arr;
+}
+```
+
+---
+
+## API reference
+
+| Function | Description |
+|---|---|
+| `createUserKeypair()` | Generate a fresh x25519 keypair |
+| `deriveSharedSecret(privateKey, mxePubkey)` | x25519 ECDH shared secret |
+| `fetchMxePublicKey(client)` | Fetch (and cache) the MXE's public key |
+| `createCipher(privateKey, mxePubkey)` | Construct a `RescueCipher` from a shared secret |
+| `encryptBetInput(input, cipher, nonce?)` | Encrypt `{ amount, side }` → `EncryptedBetInput` |
+| `decryptBetInput(encrypted, cipher, nonceBytes)` | Decrypt ciphertexts → `{ amount, side }` |
+| `bigIntToLeBytes(value, byteLength)` | Convert u128 `bigint` nonce → 16-byte LE `Uint8Array` |
+| `leBytesToBigInt(bytes)` | Reverse: LE `Uint8Array` → `bigint` |

@@ -1,0 +1,146 @@
+---
+title: "React setup"
+description: "Wrap your app with CypherProvider and configure the QueryClient."
+---
+
+The React integration lives in `@cypher-zk/sdk/react`. It wraps a `CypherClient` instance in context so every component can call hooks without passing the client around manually.
+
+## Install dependencies
+
+```bash
+npm install @cypher-zk/sdk @solana/web3.js @tanstack/react-query
+```
+
+## Set up the provider
+
+<Tabs>
+  <Tab title="Next.js app router">
+    ```typescript
+    // src/providers/cypher-provider.tsx
+    "use client";
+
+    import { useMemo } from "react";
+    import { Connection } from "@solana/web3.js";
+    import { CypherClient, readonlyWallet } from "@cypher-zk/sdk";
+    import { CypherProvider as BaseCypherProvider } from "@cypher-zk/sdk/react";
+    import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+    import { useWallet } from "@solana/wallet-adapter-react";
+
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          refetchOnWindowFocus: false,
+          retry: false,
+        },
+      },
+    });
+
+    export function CypherProvider({ children }: { children: React.ReactNode }) {
+      const { wallet, publicKey, signTransaction, signAllTransactions } = useWallet();
+
+      const client = useMemo(() => {
+        const connection = new Connection(
+          process.env.NEXT_PUBLIC_RPC_URL!,
+          "confirmed"
+        );
+        const w =
+          wallet && publicKey && signTransaction && signAllTransactions
+            ? { publicKey, signTransaction, signAllTransactions }
+            : readonlyWallet(publicKey ?? /* fallback pk */);
+
+        return new CypherClient({ connection, wallet: w, cluster: "devnet" });
+      }, [wallet, publicKey, signTransaction, signAllTransactions]);
+
+      return (
+        <QueryClientProvider client={queryClient}>
+          <BaseCypherProvider client={client}>
+            {children}
+          </BaseCypherProvider>
+        </QueryClientProvider>
+      );
+    }
+    ```
+
+    Add to your root layout:
+
+    ```typescript
+    // src/app/layout.tsx
+    import "@/lib/buffer-polyfill";
+    import { CypherProvider } from "@/providers/cypher-provider";
+
+    export default function RootLayout({ children }) {
+      return (
+        <html>
+          <body>
+            <CypherProvider>{children}</CypherProvider>
+          </body>
+        </html>
+      );
+    }
+    ```
+  </Tab>
+  <Tab title="Vite / CRA">
+    ```typescript
+    // src/main.tsx
+    import { Connection } from "@solana/web3.js";
+    import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+    import { CypherProvider } from "@cypher-zk/sdk/react";
+    import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+
+    const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+    const client = new CypherClient({
+      connection,
+      wallet: keypairToWallet(myKeypair), // or wallet adapter
+      cluster: "devnet",
+    });
+
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { refetchOnWindowFocus: false, retry: false } },
+    });
+
+    ReactDOM.createRoot(document.getElementById("root")!).render(
+      <QueryClientProvider client={queryClient}>
+        <CypherProvider client={client}>
+          <App />
+        </CypherProvider>
+      </QueryClientProvider>
+    );
+    ```
+  </Tab>
+</Tabs>
+
+## Read-only mode
+
+Use `readonlyWallet` when the user isn't connected yet. It lets fetch hooks run without a signer - mutation hooks will throw if called.
+
+```typescript
+import { readonlyWallet } from "@cypher-zk/sdk";
+
+const client = new CypherClient({
+  connection,
+  wallet: readonlyWallet(somePublicKey),
+  cluster: "devnet",
+});
+```
+
+## Access the client directly
+
+Inside any component, `useCypherClient()` returns the client from context:
+
+```typescript
+import { useCypherClient } from "@cypher-zk/sdk/react";
+
+function MyComponent() {
+  const client = useCypherClient();
+  // client.markets.all(), client.actions.placeBet(...), etc.
+}
+```
+
+<Note>
+  `useCypherClient()` throws if called outside `<CypherProvider>`. Make sure the hook is inside the provider tree.
+</Note>
+
+## What's next
+
+- [Query hooks](/sdk/react/query-hooks) - fetch markets, positions, global state
+- [Mutation hooks](/sdk/react/mutation-hooks) - place bets, claim, resolve

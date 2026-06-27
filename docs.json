@@ -93,28 +93,49 @@
         "tab": "SDK Reference",
         "groups": [
           {
-            "group": "Client",
+            "group": "Get started",
+            "icon": "bolt",
             "pages": [
-              "sdk/overview",
-              "sdk/cypher-client",
-              "sdk/react-hooks"
+              "sdk/installation",
+              "sdk/quickstart"
+            ]
+          },
+          {
+            "group": "React",
+            "icon": "react",
+            "pages": [
+              "sdk/react/setup",
+              "sdk/react/query-hooks",
+              "sdk/react/mutation-hooks"
             ]
           },
           {
             "group": "Actions",
+            "icon": "code",
             "pages": [
+              "sdk/actions/place-bet",
               "sdk/actions/markets",
-              "sdk/actions/bets",
               "sdk/actions/resolution",
               "sdk/actions/claims"
             ]
           },
           {
-            "group": "Utilities",
+            "group": "Reference",
+            "icon": "book",
             "pages": [
-              "sdk/utilities/market-helpers",
-              "sdk/utilities/encryption",
-              "sdk/utilities/events"
+              "sdk/reference/client",
+              "sdk/reference/accounts",
+              "sdk/reference/encryption",
+              "sdk/reference/events",
+              "sdk/reference/errors",
+              "sdk/reference/constants"
+            ]
+          },
+          {
+            "group": "Changelog",
+            "icon": "clock-rotate-left",
+            "pages": [
+              "sdk/changelog"
             ]
           }
         ]

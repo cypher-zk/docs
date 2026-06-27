@@ -1,0 +1,125 @@
+---
+title: "Constants & PDAs"
+description: "Protocol constants, enums, and PDA derivation helpers."
+---
+
+## Constants
+
+```typescript
+import {
+  PROGRAM_ID,
+  MIN_BET_USDC,
+  MIN_CREATOR_BOND,
+  ODDS_SCALE,
+  // ...
+} from "@cypher-zk/sdk";
+```
+
+| Constant | Value | Description |
+|---|---|---|
+| `PROGRAM_ID` | `PublicKey` | Cypher program ID (sourced from synced IDL) |
+| `MIN_BET_USDC` | `1_000_000n` | Minimum bet - $1.00 USDC |
+| `MIN_CREATOR_BOND` | `20_000_000n` | Minimum creator bond - $20.00 USDC |
+| `ODDS_SCALE` | `1_000_000_000n` | Fixed-point scale for `entryOdds` and `payoutRatio` |
+| `MAX_QUESTION_BYTES` | `200` | Maximum question string length in bytes |
+| `MIN_OUTCOMES_MULTI` | `2` | Minimum outcomes for a MultiOutcome market |
+| `MAX_OUTCOMES_MULTI` | `4` | Maximum outcomes for a MultiOutcome market |
+| `MIN_CHALLENGE_PERIOD_SECS` | `86400` | Minimum challenge window - 24 hours |
+| `MAX_CHALLENGE_PERIOD_SECS` | `172800` | Maximum challenge window - 48 hours |
+| `DEFAULT_RESOLUTION_WINDOW_SECS` | `604800` | 7 days after close time for resolver to post outcome |
+| `DEFAULT_CLAIM_PERIOD_SECS` | `1209600` | 14 days after resolution for winners to claim |
+| `DEFAULT_REFUND_PERIOD_SECS` | `1209600` | 14 days after resolution deadline for refunds |
+| `MAX_PROTOCOL_FEE_BPS` | `100` | 1% maximum protocol fee |
+| `MAX_LP_FEE_BPS` | `500` | 5% maximum LP fee |
+| `BPS_DENOMINATOR` | `10_000n` | Denominator for basis-point fee math |
+
+---
+
+## Enums
+
+### MarketState
+
+| Value | Name | Description |
+|---|---|---|
+| `0` | `Active` | Betting is open |
+| `1` | `Closed` | Market was cancelled |
+| `2` | `Resolved` | Outcome posted, payouts open |
+| `3` | `Unresolved` | Resolver missed deadline, refunds open |
+| `4` | `PendingResolution` | MPC reveal ran, in challenge window |
+
+```typescript
+import { MarketState } from "@cypher-zk/sdk";
+
+if (market.state === MarketState.Active) { /* ... */ }
+```
+
+### MarketType
+
+| Value | Name | Description |
+|---|---|---|
+| `0` | `YesNo` | Two outcomes: NO (0) and YES (1) |
+| `1` | `MultiOutcome` | Two to four named outcomes |
+
+### MarketCategory
+
+| Value | Name |
+|---|---|
+| `0` | `Crypto` |
+| `1` | `Politics` |
+| `2` | `Sports` |
+| `3` | `Tech` |
+| `4` | `Economy` |
+| `5` | `Culture` |
+| `6` | `Beyond` |
+
+---
+
+## PDAs
+
+All PDA derivation helpers accept an optional `programId` argument for non-default deployments.
+
+```typescript
+import {
+  globalStatePda,
+  marketPda,
+  marketVaultPda,
+  positionPda,
+  userStatePda,
+  lpPositionPda,
+  marketQuestionPda,
+  arciumSignerPda,
+} from "@cypher-zk/sdk";
+```
+
+| Function | Seeds | Description |
+|---|---|---|
+| `globalStatePda(programId?)` | `["global_state"]` | Singleton protocol config |
+| `marketPda(marketId, programId?)` | `["market", id_u64_LE]` | One per market ID |
+| `marketVaultPda(market, programId?)` | `["market_vault", market]` | SPL token vault holding stakes |
+| `positionPda(market, user, betIndex?, programId?)` | `["position", market, user, betIndex_u64_LE]` | One per bet (defaults `betIndex` to `0n`) |
+| `userStatePda(user, programId?)` | `["user_state", user]` | Per-user bet index counter |
+| `lpPositionPda(market, creator, programId?)` | `["lp-position", market, creator]` | Creator bond + LP fees |
+| `marketQuestionPda(market, programId?)` | `["market_question", market]` | Question text for v0.2+ markets |
+| `arciumSignerPda(programId?)` | `["ArciumSignerAccount"]` | Arcium CPI authority for callbacks |
+
+### Usage
+
+```typescript
+const [marketAddress, bump] = marketPda(42n);
+const [positionAddress] = positionPda(marketAddress, userPublicKey, 0n);
+```
+
+---
+
+## Known mints
+
+<Note>
+  Always read `globalState.acceptedMint` at runtime instead of hardcoding. The mint differs between devnet and mainnet.
+</Note>
+
+| Constant | Mint | Network |
+|---|---|---|
+| `KNOWN_MINTS.devnetCSDC` | `8AF9BABN...` | Devnet (Cypher Coin) |
+| `KNOWN_MINTS.mainnetUSDC` | `EPjFWdd5...` | Mainnet (Circle USDC) |
+
+These are informational only. They are not used in any action path.

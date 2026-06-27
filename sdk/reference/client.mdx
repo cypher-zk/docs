@@ -1,0 +1,184 @@
+---
+title: "CypherClient"
+description: "Constructor options, namespace overview, and wallet helpers."
+---
+
+`CypherClient` is the SDK entrypoint. Construction is cheap and synchronous - no RPC calls until you call a method.
+
+```typescript
+import { Connection } from "@solana/web3.js";
+import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+
+const client = new CypherClient({
+  connection: new Connection("https://api.devnet.solana.com", "confirmed"),
+  wallet: keypairToWallet(keypair),
+  cluster: "devnet",
+});
+```
+
+---
+
+## Constructor options
+
+<ParamField body="connection" type="Connection" required>
+  A `@solana/web3.js` `Connection` pointed at your target cluster. Pin `@solana/web3.js` to `^1.95.4` - the SDK is not compatible with v2 or `@solana/kit`.
+</ParamField>
+
+<ParamField body="wallet" type="Wallet" required>
+  An Anchor-compatible wallet. Use `keypairToWallet(keypair)` for scripts, or pass a browser wallet adapter directly (they already implement the `Wallet` interface). Use `readonlyWallet(pubkey)` when the user is not connected.
+
+  ```typescript
+  interface Wallet {
+    publicKey: PublicKey;
+    signTransaction<T>(tx: T): Promise<T>;
+    signAllTransactions<T>(txs: T[]): Promise<T[]>;
+  }
+  ```
+</ParamField>
+
+<ParamField body="cluster" type="'devnet' | 'mainnet' | 'localnet' | ClusterConfig">
+  Cluster preset for Arcium-specific configuration. If omitted, the SDK infers from the connection's RPC URL. Pass a full `ClusterConfig` to override the RPC, Arcium cluster offset, or expected mint.
+
+  ```typescript
+  interface ClusterConfig {
+    name: "devnet" | "mainnet" | "localnet";
+    rpc: string;
+    arciumClusterOffset: number;
+    expectedMint: PublicKey;
+  }
+  ```
+</ParamField>
+
+<ParamField body="commitment" type="Commitment">
+  Commitment used by the underlying Anchor provider. Defaults to `"confirmed"`.
+</ParamField>
+
+<ParamField body="programId" type="PublicKey">
+  Override the program ID. Only needed for local redeployments with a fresh keypair. Defaults to the ID from the synced IDL.
+</ParamField>
+
+<ParamField body="tokenProgram" type="PublicKey">
+  The SPL token program owning the accepted mint. Defaults to auto-detection on the first `globalState.fetch()`. Pass `TOKEN_2022_PROGRAM_ID` explicitly to skip the detection RPC call.
+</ParamField>
+
+<ParamField body="confirmOptions" type="ConfirmOptions">
+  Extra options forwarded to the Anchor provider (e.g., `skipPreflight`).
+</ParamField>
+
+---
+
+## Namespaces
+
+`CypherClient` exposes high-level namespaces as read-only properties.
+
+### `client.actions`
+
+High-level action helpers. Each orchestrates a full flow: validate → encrypt (if needed) → build instructions → send transaction → await Arcium callback → refetch.
+
+| Method | Description |
+|---|---|
+| `placeBet(inputs)` | Encrypt and submit a private bet |
+| `createMarket(inputs)` | Create a YES/NO market |
+| `createMarketMulti(inputs)` | Create a multi-outcome market |
+| `cancelMarket(inputs)` | Cancel a market with zero bets |
+| `withdrawCreatorFunds(inputs)` | Pull creator bond + LP fees |
+| `resolveMarket(inputs)` | Post outcome and trigger MPC reveal |
+| `claimPayout(inputs)` | Claim winning payout |
+| `claimRefund(inputs)` | Claim refund from unresolved market |
+| `flagResolution(inputs)` | Flag a pending resolution as disputed |
+| `finalizeResolution(inputs)` | Finalize after challenge window elapses |
+| `adminOverrideResolution(inputs)` | Admin override on a disputed market |
+
+### `client.markets`
+
+Account fetch helpers for `MarketAccount`.
+
+| Method | Description |
+|---|---|
+| `fetch(marketId)` | Fetch by numeric ID |
+| `fetchByPda(pda)` | Fetch by public key |
+| `all()` | All markets |
+| `byCreator(creator)` | Filter by creator |
+| `byState(state)` | Filter by state enum value |
+
+### `client.positions`
+
+Account fetch helpers for `EncryptedPositionAccount`.
+
+| Method | Description |
+|---|---|
+| `fetch(market, user, betIndex?)` | Single position (defaults `betIndex` to `0n`) |
+| `byUser(user)` | All positions across all markets |
+| `forMarket(market)` | All positions on a single market |
+
+### `client.globalState`
+
+| Method | Description |
+|---|---|
+| `fetch(opts?)` | Fetch singleton GlobalState (cached per client instance) |
+| `invalidate()` | Clear cache; next `fetch()` hits RPC |
+
+Pass `{ refresh: true }` to bypass the cache: `client.globalState.fetch({ refresh: true })`.
+
+### `client.lpPositions`
+
+| Method | Description |
+|---|---|
+| `fetch(market, creator)` | LP position for a market/creator pair |
+| `byProvider(provider)` | All LP positions for a creator |
+
+### `client.marketQuestions`
+
+| Method | Description |
+|---|---|
+| `fetch(market)` | Fetch the `MarketQuestion` PDA for a market (v0.2+ markets only) |
+
+### `client.events`
+
+| Method | Description |
+|---|---|
+| `subscribeAll(callback, opts?)` | WebSocket subscription to all events |
+| `subscribe(name, callback, opts?)` | Typed subscription to a single event name |
+| `onMarketCreated(callback, opts?)` | Convenience typed listener |
+| `onBetPlaced(callback, opts?)` | Convenience typed listener |
+| `onMarketResolved(callback, opts?)` | Convenience typed listener |
+| `onMarketCancelled(callback, opts?)` | Convenience typed listener |
+| `onCreatorWithdrawn(callback, opts?)` | Convenience typed listener |
+| `onPayoutClaimed(callback, opts?)` | Convenience typed listener |
+| `onRefundClaimed(callback, opts?)` | Convenience typed listener |
+| `pollEvents(opts?)` | Poll-based event fetch (no WebSocket required) |
+| `parseLogs(logs)` | Parse raw transaction log strings into typed events |
+
+---
+
+## Wallet helpers
+
+### keypairToWallet
+
+Wraps a `Keypair` as an Anchor-compatible `Wallet`. Use this for Node scripts, tests, and CLIs.
+
+```typescript
+import { Keypair } from "@solana/web3.js";
+import { CypherClient, keypairToWallet } from "@cypher-zk/sdk";
+
+const keypair = Keypair.fromSecretKey(secretKeyBytes);
+const client = new CypherClient({
+  connection,
+  wallet: keypairToWallet(keypair),
+  cluster: "devnet",
+});
+```
+
+### readonlyWallet
+
+Creates a wallet that can sign nothing - only fetch operations work. Calling `signTransaction` or `signAllTransactions` throws. Use it before the user connects their browser wallet.
+
+```typescript
+import { readonlyWallet } from "@cypher-zk/sdk";
+
+const client = new CypherClient({
+  connection,
+  wallet: readonlyWallet(someFallbackPublicKey),
+  cluster: "devnet",
+});
+```

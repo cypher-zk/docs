@@ -1,0 +1,121 @@
+---
+title: "Quickstart"
+description: "Initialize CypherClient and place your first private bet."
+---
+
+<Tabs>
+  <Tab title="Node.js">
+    A self-contained script that lists markets and places a bet using a keypair wallet.
+
+    ```typescript
+    import { Connection, Keypair } from "@solana/web3.js";
+    import {
+      CypherClient,
+      keypairToWallet,
+      marketPhase,
+      saveSecret,
+    } from "@cypher-zk/sdk";
+
+    const connection = new Connection("https://api.devnet.solana.com", "confirmed");
+    const keypair = Keypair.fromSecretKey(/* your key bytes */);
+
+    const client = new CypherClient({
+      connection,
+      wallet: keypairToWallet(keypair),
+      cluster: "devnet",
+    });
+
+    // List all active markets
+    const markets = await client.markets.all();
+    const active = markets.filter(
+      ({ account }) => marketPhase(account) === "betting"
+    );
+
+    console.log(`${active.length} markets open for betting`);
+
+    // Place a private bet on the first active market
+    const { account: market, publicKey: marketPda } = active[0];
+
+    const result = await client.actions.placeBet({
+      payer: keypair.publicKey,
+      user: keypair.publicKey,
+      marketId: market.marketId,
+      side: 1,              // 1 = YES for YesNo markets
+      amountUsdc: 2_000_000n, // $2.00 USDC (6 decimals)
+      onProgress: ({ stage, message }) => {
+        console.log(`[${stage}] ${message ?? ""}`);
+      },
+    });
+
+    // Persist the private key immediately - you need it to see your side later
+    saveSecret(marketPda, result.betIndex, result.userKeypair.privateKey);
+
+    console.log("Bet placed:", result.signature);
+    console.log("Bet index:", result.betIndex);
+    ```
+
+    <Warning>
+      Call `saveSecret` (or store `result.userKeypair.privateKey`) immediately after the bet lands. If the process exits before you save it, you lose the ability to read your side in the UI. Your funds are still safe - you can still claim.
+    </Warning>
+  </Tab>
+  <Tab title="React">
+    A minimal React component that lists markets and places a bet with the `usePlaceBet` hook.
+
+    First, wrap your app with `CypherProvider` - see [React setup](/sdk/react/setup).
+
+    ```typescript
+    import { usePlaceBet, useMarkets } from "@cypher-zk/sdk/react";
+    import { marketPhase } from "@cypher-zk/sdk";
+    import { saveSecret } from "@/lib/persist-secret";
+
+    export function BetButton({ marketId }: { marketId: bigint }) {
+      const { data: markets } = useMarkets();
+      const placeBet = usePlaceBet({
+        onSuccess: ({ position, userKeypair, betIndex }) => {
+          if (position) {
+            saveSecret(position.market, betIndex, userKeypair.privateKey);
+          }
+        },
+        onError: (err) => console.error(err),
+      });
+
+      const market = markets?.find((m) => m.account.marketId === marketId);
+      const isOpen = market && marketPhase(market.account) === "betting";
+
+      return (
+        <button
+          disabled={!isOpen || placeBet.isPending}
+          onClick={() =>
+            placeBet.mutate({
+              payer: /* wallet.publicKey */,
+              user: /* wallet.publicKey */,
+              marketId,
+              side: 1,              // 1 = YES
+              amountUsdc: 2_000_000n, // $2.00
+            })
+          }
+        >
+          {placeBet.isPending ? "Placing bet..." : "Bet YES"}
+        </button>
+      );
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## What's next
+
+<CardGroup cols={2}>
+  <Card title="React setup" icon="react" href="/sdk/react/setup">
+    Wire up CypherProvider and configure React Query.
+  </Card>
+  <Card title="Place bet action" icon="coins" href="/sdk/actions/place-bet">
+    Full parameter reference for placeBet.
+  </Card>
+  <Card title="Query hooks" icon="magnifying-glass" href="/sdk/react/query-hooks">
+    Fetch markets, positions, and global state.
+  </Card>
+  <Card title="Encryption" icon="lock" href="/sdk/reference/encryption">
+    How secrets work and how to decrypt positions.
+  </Card>
+</CardGroup>

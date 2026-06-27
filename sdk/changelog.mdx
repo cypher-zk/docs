@@ -1,0 +1,56 @@
+---
+title: "Changelog"
+description: "SDK version history and migration notes."
+---
+
+## v0.8.7 (current)
+
+**Multi-bet support.** Users can now hold multiple positions per market. Each bet gets an auto-incrementing `betIndex`.
+
+- `placeBetAction` reads `user_state.next_bet_index` automatically and retries up to 3 times on concurrent-bet index conflicts.
+- `ClaimInputs` and `useClaimPayout` / `useClaimRefund` now accept `betIndex` (defaults to `0n`).
+- `EncryptedPositionAccount` adds `betIndex: bigint` field.
+- `saveSecret(market, betIndex, privateKey)` - signature changed to include `betIndex`.
+- `positionPda(market, user, betIndex?)` - `betIndex` defaults to `0n`.
+
+**Separate `MarketQuestion` PDA.** Question text for new markets moves to a dedicated account to save space in `MarketAccount`.
+
+- Use `fetchMarketQuestions(client, marketPublicKeys)` to hydrate questions in batch.
+- Legacy markets still have `account.inlineQuestion`.
+- `marketFormatVersion(accountSize)` returns `"v1"` | `"v2"` | `"v3"` | `null`.
+
+**Challenge window.** Dispute resolution system added.
+
+- New actions: `flagResolutionAction`, `finalizeResolutionAction`, `adminOverrideResolutionAction`.
+- New React hooks: `useFlagResolution`, `useFinalizeResolution`, `useAdminOverrideResolution`.
+- New events: `ResolutionFlaggedEvent`, `MarketFinalizedEvent`, `ResolutionOverriddenEvent`.
+- Markets pass through `PendingResolution` (state `4`) between reveal and claim.
+- New constants: `MIN_CHALLENGE_PERIOD_SECS` (24h), `MAX_CHALLENGE_PERIOD_SECS` (48h).
+
+---
+
+## v0.8.6
+
+**Breaking change.** The `betIndex` parameter was removed from the low-level `placePrivateBetYesnoIx` and `placePrivateBetMultiIx` instruction builders. The on-chain `user_state` PDA now tracks `next_bet_index` automatically.
+
+- `userStatePda(user)` - new PDA for per-user bet index counter.
+- `readNextBetIndex(client, user)` - helper to fetch the current index when building low-level instructions. Not needed if you use `placeBetAction`.
+- High-level `placeBetAction` handles index tracking and retries automatically - no changes needed for callers using `client.actions.placeBet`.
+
+---
+
+## v0.8.5
+
+**Position decoder fix.** `fetchUserPositions` (and `client.positions.byUser`) now correctly handles mixed legacy 208-byte and current 216-byte position accounts.
+
+- Previously, a single legacy account in the result set would cause the entire query to fail silently (returning zero positions).
+- The fix uses per-account size-aware decoding instead of Anchor's all-or-nothing decoder.
+
+---
+
+## v0.8.0 and earlier
+
+- One position per user per market (no `betIndex`).
+- `saveSecret(market, secret)` took two arguments (no `betIndex`).
+- Questions always stored inline in `MarketAccount.inlineQuestion`.
+- No challenge window - markets moved directly from `PendingResolution` to `Resolved` after the MPC callback.

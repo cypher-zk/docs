@@ -1,0 +1,123 @@
+---
+title: "Errors"
+description: "Parse Cypher program errors and the full error code table."
+---
+
+## parseCypherError
+
+Use `parseCypherError` to extract a structured error from any thrown value. It handles all the ways Anchor can surface program errors - direct `AnchorError` instances, log lines, and raw transaction simulation failures.
+
+```typescript
+import { parseCypherError } from "@cypher-zk/sdk";
+
+try {
+  await client.actions.placeBet({ ... });
+} catch (err) {
+  const parsed = parseCypherError(err);
+  if (parsed) {
+    console.error(`[${parsed.code}] ${parsed.name}: ${parsed.msg}`);
+    // e.g., "[6000] MarketNotActive: Market is not active"
+  } else {
+    // Non-Cypher error (network issue, etc.)
+    console.error(err);
+  }
+}
+```
+
+### Return type
+
+```typescript
+interface ParsedCypherError {
+  code: number;   // e.g., 6000
+  name: string;   // e.g., "MarketNotActive"
+  msg: string;    // e.g., "Market is not active"
+}
+```
+
+Returns `null` if the thrown value is not a Cypher program error.
+
+---
+
+## Error codes
+
+All Cypher errors start at Anchor's `6000` offset.
+
+<Accordion title="Full error table (6000–6044)">
+
+| Code | Name | Message |
+|---|---|---|
+| 6000 | `MarketNotActive` | Market is not active |
+| 6001 | `MarketClosed` | Market is closed |
+| 6002 | `MarketStillOpen` | Market is still open for betting |
+| 6003 | `AlreadyResolved` | Market is already resolved |
+| 6004 | `NotResolved` | Market is not yet resolved |
+| 6005 | `UnauthorizedResolver` | Caller is not the designated resolver |
+| 6006 | `UnauthorizedAdmin` | Caller is not the admin |
+| 6007 | `AlreadyClaimed` | Position already claimed |
+| 6008 | `PositionLost` | Position did not win — cannot claim payout |
+| 6009 | `BetTooSmall` | Bet amount is below the minimum |
+| 6010 | `InsufficientVaultBalance` | Vault has insufficient funds |
+| 6011 | `NoFeesToClaim` | No fees available to claim |
+| 6012 | `LiquidityTooLow` | Pool liquidity too low |
+| 6013 | `InvalidCloseTime` | Close time is in the past or too soon |
+| 6014 | `EmptyQuestion` | Market question cannot be empty |
+| 6015 | `QuestionTooLong` | Question exceeds 200 bytes |
+| 6016 | `Overflow` | Arithmetic overflow |
+| 6017 | `InvalidOutcome` | Outcome value is out of range |
+| 6018 | `InvalidFeeRate` | Fee rate exceeds maximum allowed |
+| 6019 | `InvalidTreasury` | Invalid treasury public key |
+| 6020 | `BondAlreadyWithdrawn` | Creator bond already withdrawn |
+| 6021 | `NotMarketCreator` | Caller is not the market creator |
+| 6022 | `MarketHasBets` | Cannot cancel a market with existing bets |
+| 6023 | `ResolutionDeadlinePassed` | Resolution deadline has passed |
+| 6024 | `MarketNotUnresolved` | Market is not in an unresolved state |
+| 6025 | `ResolutionDeadlineNotReached` | Resolution deadline has not been reached yet |
+| 6026 | `ClaimPeriodExpired` | Claim period has expired |
+| 6027 | `RefundPeriodExpired` | Refund period has expired |
+| 6028 | `ComputationAlreadyQueued` | Arcium computation already queued for this position |
+| 6029 | `AbortedComputation` | Arcium computation was aborted |
+| 6030 | `ComputationVerificationFailed` | Arcium computation verification failed |
+| 6031 | `CannotWithdrawFromUnresolved` | Cannot withdraw creator funds from unresolved market |
+| 6032 | `AdminAlreadyClaimed` | Admin already claimed remaining vault funds |
+| 6033 | `WrongMarketType` | Wrong market type for this instruction |
+| 6034 | `WrongMint` | Wrong token mint |
+| 6035 | `NotAcceptedMint` | Token mint is not the accepted USDC mint |
+| 6036 | `InvalidCategory` | Category value is out of range |
+| 6037 | `InvalidChallengePeriod` | Challenge period is outside the allowed range |
+| 6038 | `BondTooSmall` | Bond amount is below the minimum |
+| 6039 | `NotPendingResolution` | Market is not in PendingResolution state |
+| 6040 | `ChallengePeriodNotElapsed` | Challenge period has not elapsed yet |
+| 6041 | `ChallengePeriodElapsed` | Challenge period has already elapsed |
+| 6042 | `MarketDisputed` | Market is disputed - admin override required |
+| 6043 | `MarketNotDisputed` | Market is not disputed |
+| 6044 | `UnauthorizedUser` | Caller is not authorized for this operation |
+
+</Accordion>
+
+---
+
+## Common patterns
+
+**Check for a specific error:**
+
+```typescript
+import { parseCypherError, CypherErrorCode } from "@cypher-zk/sdk";
+
+const parsed = parseCypherError(err);
+if (parsed?.code === CypherErrorCode.BetTooSmall) {
+  showToast(`Minimum bet is $${market.minBet / 1_000_000n}`);
+}
+```
+
+**Handle in React:**
+
+```typescript
+import { usePlaceBet, parseCypherError } from "@cypher-zk/sdk/react";
+
+const placeBet = usePlaceBet({
+  onError: (err) => {
+    const parsed = parseCypherError(err);
+    setError(parsed?.msg ?? "Transaction failed");
+  },
+});
+```

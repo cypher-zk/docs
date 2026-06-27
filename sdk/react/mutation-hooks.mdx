@@ -1,0 +1,230 @@
+---
+title: "Mutation hooks"
+description: "React hooks for placing bets, creating markets, claiming, and resolving."
+---
+
+Mutation hooks wrap the high-level actions with TanStack Query's `useMutation`. On success, each hook automatically invalidates the relevant caches so your UI stays in sync.
+
+## usePlaceBet
+
+Places an encrypted private bet. See [Place bet](/sdk/actions/place-bet) for the full parameter reference.
+
+```typescript
+import { usePlaceBet } from "@cypher-zk/sdk/react";
+import { saveSecret } from "@/lib/persist-secret";
+
+const placeBet = usePlaceBet({
+  onSuccess: ({ position, userKeypair, signature, betIndex }) => {
+    // Persist the private key immediately
+    if (position) {
+      saveSecret(position.market, betIndex, userKeypair.privateKey);
+    }
+  },
+  onError: (err) => {
+    const parsed = parseCypherError(err);
+    console.error(parsed?.msg ?? err);
+  },
+});
+
+placeBet.mutate({
+  payer: walletPublicKey,
+  user: walletPublicKey,
+  marketId: 42n,
+  side: 1,             // 1 = YES
+  amountUsdc: 5_000_000n, // $5.00
+  onProgress: ({ stage, message }) => setStatus(`${stage}: ${message}`),
+});
+```
+
+**Invalidates on success:** market, user positions, global state.
+
+---
+
+## useCreateMarket
+
+Creates a YesNo or MultiOutcome market.
+
+```typescript
+import { useCreateMarket } from "@cypher-zk/sdk/react";
+
+const createMarket = useCreateMarket({
+  onSuccess: ({ marketId, signature }) => {
+    console.log("Market created:", marketId, signature);
+  },
+});
+
+// YesNo
+createMarket.mutate({
+  payer: walletPublicKey,
+  creator: walletPublicKey,
+  question: "Will BTC close above $100k on 31 Dec 2026?",
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 7 * 86400), // 7 days
+  category: 0, // Crypto
+  bondAmount: 20_000_000n, // $20 minimum
+  challengePeriod: 86400n, // 24 hours
+});
+
+// MultiOutcome — embed options in the question with [A|B|C] suffix
+createMarket.mutate({
+  payer: walletPublicKey,
+  creator: walletPublicKey,
+  question: "Which chain leads TVL on 1 Jan 2026? [Solana|Ethereum|Base]",
+  numOutcomes: 3,
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 30 * 86400),
+  category: 0,
+  bondAmount: 20_000_000n,
+  challengePeriod: 86400n,
+});
+```
+
+**Invalidates on success:** all markets, global state.
+
+---
+
+## useResolveMarket
+
+Posts the real-world outcome after market close. Only the resolver wallet can call this.
+
+```typescript
+import { useResolveMarket } from "@cypher-zk/sdk/react";
+
+const resolve = useResolveMarket();
+
+resolve.mutate({
+  payer: resolverPublicKey,
+  resolver: resolverPublicKey,
+  marketId: 42n,
+  outcomeValue: 1, // 0 = NO/Option0, 1 = YES/Option1, 2+ for multi
+});
+```
+
+**Invalidates on success:** the resolved market.
+
+---
+
+## useClaimPayout
+
+Claims the winner's payout after a market becomes claimable.
+
+```typescript
+import { useClaimPayout } from "@cypher-zk/sdk/react";
+
+const claim = useClaimPayout({
+  onSuccess: ({ signature }) => console.log("Claimed:", signature),
+});
+
+claim.mutate({
+  payer: walletPublicKey,
+  user: walletPublicKey,
+  marketId: 42n,
+  betIndex: 0n, // which bet to claim; defaults to 0n
+});
+```
+
+**Invalidates on success:** position, market.
+
+---
+
+## useClaimRefund
+
+Claims a refund when the resolver never posted an outcome.
+
+```typescript
+import { useClaimRefund } from "@cypher-zk/sdk/react";
+
+const refund = useClaimRefund();
+
+refund.mutate({
+  payer: walletPublicKey,
+  user: walletPublicKey,
+  marketId: 42n,
+  betIndex: 0n,
+});
+```
+
+**Invalidates on success:** position, market.
+
+---
+
+## useCancelMarket
+
+Cancels a market with zero bets. Returns the creator's bond.
+
+```typescript
+import { useCancelMarket } from "@cypher-zk/sdk/react";
+
+const cancel = useCancelMarket();
+
+cancel.mutate({
+  creator: walletPublicKey,
+  marketId: 42n,
+});
+```
+
+<Note>
+  Cancellation is only allowed when `totalBetsCount === 0`. Use `cancelEligibility(market)` to pre-flight check before showing the button.
+</Note>
+
+**Invalidates on success:** market, all markets.
+
+---
+
+## useWithdrawCreatorFunds
+
+Withdraws bond plus accumulated creator fees after resolution.
+
+```typescript
+import { useWithdrawCreatorFunds } from "@cypher-zk/sdk/react";
+
+const withdraw = useWithdrawCreatorFunds();
+
+withdraw.mutate({
+  creator: walletPublicKey,
+  marketId: 42n,
+});
+```
+
+**Invalidates on success:** market, LP position.
+
+---
+
+## Dispute hooks
+
+These are v0.2+ only. See [Resolution](/sdk/actions/resolution) for the full flows.
+
+```typescript
+import {
+  useFlagResolution,
+  useFinalizeResolution,
+  useAdminOverrideResolution,
+} from "@cypher-zk/sdk/react";
+
+// Anyone can flag during the challenge window
+const flag = useFlagResolution();
+flag.mutate({ flagger: walletPublicKey, marketId: 42n });
+
+// Anyone can finalize after the window expires undisputed
+const finalize = useFinalizeResolution();
+finalize.mutate({ caller: walletPublicKey, marketId: 42n });
+
+// Admin only — overrides a disputed resolution
+const override = useAdminOverrideResolution();
+override.mutate({ admin: walletPublicKey, marketId: 42n, outcomeValue: 0 });
+```
+
+---
+
+## Auto-invalidation summary
+
+| Hook | Invalidates |
+|---|---|
+| `usePlaceBet` | Market, user positions, global state |
+| `useCreateMarket` | All markets, global state |
+| `useResolveMarket` | Market |
+| `useClaimPayout` | Position, market |
+| `useClaimRefund` | Position, market |
+| `useCancelMarket` | Market, all markets |
+| `useWithdrawCreatorFunds` | Market, LP position |
+| `useFlagResolution` | Market |
+| `useFinalizeResolution` | Market |
+| `useAdminOverrideResolution` | Market |

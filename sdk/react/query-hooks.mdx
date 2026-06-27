@@ -1,0 +1,168 @@
+---
+title: "Query hooks"
+description: "React hooks for fetching markets, positions, and protocol state."
+---
+
+All query hooks are built on TanStack Query v5. They return `{ data, isLoading, isError, error }` and handle caching, deduplication, and background refetching automatically.
+
+## useGlobalState
+
+Fetches the protocol config: fee rates and accepted USDC mint.
+
+```typescript
+import { useGlobalState } from "@cypher-zk/sdk/react";
+
+const { data: globalState } = useGlobalState();
+
+// globalState.protocolFeeRate    — protocol fee in basis points
+// globalState.lpFeeRate          — LP (creator) fee in basis points
+// globalState.acceptedMint       — PublicKey of the accepted USDC mint
+// globalState.protocolTreasury   — PublicKey of the treasury
+```
+
+<Note>
+  Always read `globalState.acceptedMint` at runtime. Don't hardcode the USDC mint address - it differs between devnet and mainnet.
+</Note>
+
+Cache TTL: 30 seconds.
+
+---
+
+## useMarkets
+
+Fetches all markets. Optionally filter by creator or state.
+
+```typescript
+import { useMarkets } from "@cypher-zk/sdk/react";
+import { PublicKey } from "@solana/web3.js";
+
+// All markets
+const { data: markets } = useMarkets();
+
+// Only active markets (state = 0)
+const { data: active } = useMarkets({ state: 0 });
+
+// Markets by a specific creator
+const { data: mine } = useMarkets({ creator: new PublicKey("...") });
+```
+
+Each item in the array is `{ publicKey: PublicKey, account: MarketAccount }`.
+
+For markets created with SDK v0.2+, the question lives in a separate `MarketQuestion` account. Use `fetchMarketQuestions` to hydrate them in batch:
+
+```typescript
+import { fetchMarketQuestions } from "@cypher-zk/sdk";
+
+const client = useCypherClient();
+const { data: markets } = useMarkets();
+
+// Hydrate questions for all markets
+const questionMap = await fetchMarketQuestions(
+  client,
+  markets?.map((m) => m.publicKey) ?? []
+);
+
+const withQuestions = markets?.map(({ publicKey, account }) => ({
+  publicKey,
+  account,
+  question: questionMap.get(publicKey.toBase58()) || account.inlineQuestion,
+}));
+```
+
+Cache TTL: 10 seconds. Pass `refetchInterval: 4000` for live odds updates.
+
+---
+
+## useMarket
+
+Fetches a single market by ID.
+
+```typescript
+import { useMarket } from "@cypher-zk/sdk/react";
+
+const { data: market } = useMarket(marketId); // bigint | number
+```
+
+Use the `enabled` option to gate on prerequisites:
+
+```typescript
+const { data: market } = useMarket(marketId, {
+  enabled: !!marketId,
+  refetchInterval: 5000,
+});
+```
+
+Cache TTL: 10 seconds.
+
+---
+
+## useUserPositions
+
+Fetches all positions (bets) for a wallet across all markets.
+
+```typescript
+import { useUserPositions } from "@cypher-zk/sdk/react";
+import { PublicKey } from "@solana/web3.js";
+
+const { data: positions } = useUserPositions(
+  new PublicKey(walletAddress),
+  { enabled: !!walletAddress }
+);
+
+// Each item: { publicKey: PublicKey, account: EncryptedPositionAccount }
+// account.betIndex    — which bet this is (0, 1, 2, ...)
+// account.netAmount   — stake after fees (plaintext bigint)
+// account.entryOdds   — locked-in odds × ODDS_SCALE (1e9)
+// account.claimed     — whether payout was already claimed
+```
+
+Cache TTL: 5 seconds.
+
+---
+
+## usePosition
+
+Fetches a single position by market, user, and bet index.
+
+```typescript
+import { usePosition } from "@cypher-zk/sdk/react";
+
+const { data: position } = usePosition(
+  marketPublicKey,
+  userPublicKey,
+  betIndex ?? 0n // defaults to 0n
+);
+```
+
+Cache TTL: 5 seconds.
+
+---
+
+## Cache TTL reference
+
+| Hook | Default TTL | Notes |
+|---|---|---|
+| `useGlobalState` | 30 s | Fee rates change rarely |
+| `useMarkets` | 10 s | Pass `refetchInterval` for live odds |
+| `useMarket` | 10 s | Same as above |
+| `useUserPositions` | 5 s | Frequently invalidated by mutations |
+| `usePosition` | 5 s | Invalidated after claim |
+
+---
+
+## Manual cache invalidation
+
+If you send raw instructions outside of mutation hooks, invalidate the cache yourself using the query key factories:
+
+```typescript
+import { marketKeys, positionKeys } from "@cypher-zk/sdk/react";
+import { useQueryClient } from "@tanstack/react-query";
+
+const qc = useQueryClient();
+
+// Invalidate a specific market
+qc.invalidateQueries({ queryKey: marketKeys.detail(marketId) });
+
+// Invalidate all positions for a user
+qc.invalidateQueries({ queryKey: positionKeys.byUser(userPublicKey) });
+```

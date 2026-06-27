@@ -1,0 +1,103 @@
+---
+title: "Installation"
+description: "Install @cypher-zk/sdk and configure your bundler."
+---
+
+## Install
+
+```bash
+npm install @cypher-zk/sdk @solana/web3.js
+```
+
+<Warning>
+  Pin `@solana/web3.js` to `^1.95.4`. The SDK is not compatible with `@solana/web3.js` v2 or `@solana/kit`.
+</Warning>
+
+## Import paths
+
+The package ships three entry points. Only import what you need.
+
+| Path | Use for |
+|---|---|
+| `@cypher-zk/sdk` | Core client, actions, account types, utilities |
+| `@cypher-zk/sdk/react` | React hooks (`usePlaceBet`, `useMarkets`, etc.) |
+
+Never import `@cypher-zk/sdk/react` in a Node.js script — it pulls in React and TanStack Query which are browser-only.
+
+## Buffer polyfill (Next.js / Vite)
+
+The SDK uses Node's `Buffer` internally. In browser bundlers, `Buffer` is not available by default.
+
+<Tabs>
+  <Tab title="Next.js (Turbopack)">
+    Create `src/lib/buffer-polyfill.ts` and import it at the top of your root layout:
+
+    ```typescript
+    // src/lib/buffer-polyfill.ts
+    import { Buffer } from "buffer";
+    if (typeof window !== "undefined") {
+      window.Buffer = window.Buffer ?? Buffer;
+    }
+    ```
+
+    ```typescript
+    // src/app/layout.tsx
+    import "@/lib/buffer-polyfill";
+    ```
+
+    Then add to `next.config.ts`:
+
+    ```typescript
+    const nextConfig = {
+      experimental: {
+        turbo: {
+          resolveAlias: {
+            buffer: "buffer",
+          },
+        },
+      },
+    };
+    ```
+  </Tab>
+  <Tab title="Next.js (Webpack)">
+    ```typescript
+    // next.config.ts
+    const nextConfig = {
+      webpack: (config) => {
+        config.resolve.fallback = {
+          ...config.resolve.fallback,
+          fs: false,
+          buffer: require.resolve("buffer/"),
+        };
+        return config;
+      },
+    };
+    ```
+
+    Install the `buffer` package:
+
+    ```bash
+    npm install buffer
+    ```
+  </Tab>
+  <Tab title="Vite">
+    ```typescript
+    // vite.config.ts
+    import { defineConfig } from "vite";
+    import { nodePolyfills } from "vite-plugin-node-polyfills";
+
+    export default defineConfig({
+      plugins: [nodePolyfills()],
+    });
+    ```
+
+    ```bash
+    npm install vite-plugin-node-polyfills
+    ```
+  </Tab>
+</Tabs>
+
+## What's next
+
+- [Quickstart](/sdk/quickstart) - initialize the client and place your first bet
+- [React setup](/sdk/react/setup) - wire up `CypherProvider` in your app

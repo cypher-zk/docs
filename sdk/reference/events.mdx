@@ -1,0 +1,228 @@
+---
+title: "Events"
+description: "Subscribe to or parse Cypher program events."
+---
+
+The SDK emits 10 typed events via Anchor's log-based event system. All field names are **camelCase** (the SDK normalizes from the on-chain snake_case).
+
+---
+
+## WebSocket subscription
+
+Use `subscribeAll` to listen to every event in real time.
+
+```typescript
+const sub = client.events.subscribeAll((event) => {
+  switch (event.name) {
+    case "BetPlacedEvent":
+      console.log("New bet on", event.data.market.toBase58());
+      break;
+    case "PayoutClaimedEvent":
+      console.log("Payout claimed:", event.data.payoutAmount);
+      break;
+  }
+});
+
+// Tear down when done
+sub.unsubscribe();
+```
+
+### Typed single-event subscriptions
+
+For type-narrowed callbacks, use the `subscribe` method or the `on*` convenience helpers.
+
+```typescript
+// Generic typed subscription
+client.events.subscribe("MarketCreatedEvent", (data) => {
+  // data is typed as MarketCreatedEvent
+  console.log("New market:", data.marketId, data.question);
+});
+
+// Convenience helpers
+client.events.onBetPlaced((data) => {
+  console.log("Bet placed on market", data.market.toBase58());
+});
+
+client.events.onPayoutClaimed((data) => {
+  console.log("Payout claimed:", data.payoutAmount);
+});
+```
+
+### Subscription options
+
+```typescript
+const sub = client.events.subscribeAll(callback, {
+  commitment: "confirmed",   // "processed" | "confirmed" | "finalized"
+  onError: (err, source) => {
+    // source: "parse" (log decode error) or "callback" (your handler threw)
+    console.error(`Event error [${source}]:`, err);
+  },
+});
+```
+
+<Note>
+  `Connection.onLogs` does not auto-reconnect after a WebSocket drop. For long-lived subscriptions, detect WS disconnection and call `sub.unsubscribe()` + re-subscribe.
+</Note>
+
+---
+
+## Poll-based events
+
+For environments without WebSocket support (some mobile wrappers, serverless functions):
+
+```typescript
+const events = await client.events.pollEvents({
+  before: "lastSignatureFromPreviousPoll",
+  limit: 50,
+});
+
+// events: Array<{ signature, slot, event: CypherEvent }>
+```
+
+---
+
+## Parse from transaction logs
+
+If you already have a transaction's log array (e.g., from `sendAndConfirmTransaction`), parse events directly:
+
+```typescript
+const events = client.events.parseLogs(txLogs);
+// events: CypherEvent[]
+```
+
+---
+
+## Event reference
+
+<Accordion title="MarketCreatedEvent">
+
+Emitted when a new market is created.
+
+| Field | Type | Description |
+|---|---|---|
+| `marketId` | `bigint` | Assigned market ID |
+| `marketType` | `number` | `0` = YesNo, `1` = MultiOutcome |
+| `category` | `number` | Category enum (0-6) |
+| `creator` | `PublicKey` | Creator wallet |
+| `question` | `string` | Market question text |
+| `closeTime` | `bigint` | Unix timestamp when betting closes |
+
+</Accordion>
+
+<Accordion title="BetPlacedEvent">
+
+Emitted when a bet is placed. The amount and side are still encrypted at this point.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Bettor wallet |
+| `encryptedAmount` | `Uint8Array` | 32-byte ciphertext |
+| `encryptedSide` | `Uint8Array` | 32-byte ciphertext |
+| `nonce` | `bigint` | Encryption nonce (u128) |
+| `entryOdds` | `bigint` | Locked odds × ODDS_SCALE |
+
+</Accordion>
+
+<Accordion title="MarketResolvedEvent">
+
+Emitted by the Arcium callback after the MPC reveal circuit runs.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `outcome` | `number` | Winning outcome index |
+| `revealedPool0` | `bigint` | Revealed plaintext pool for outcome 0 |
+| `revealedPool1` | `bigint` | Revealed plaintext pool for outcome 1 |
+| `revealedPool2` | `bigint` | Revealed plaintext pool for outcome 2 (multi) |
+| `revealedPool3` | `bigint` | Revealed plaintext pool for outcome 3 (multi) |
+| `payoutRatio` | `bigint` | Payout per unit stake × ODDS_SCALE |
+
+</Accordion>
+
+<Accordion title="MarketCancelledEvent">
+
+Emitted when a market with zero bets is cancelled.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `creator` | `PublicKey` | Creator wallet |
+| `bondReturned` | `bigint` | Amount returned to creator |
+
+</Accordion>
+
+<Accordion title="CreatorWithdrawnEvent">
+
+Emitted when the creator pulls their bond + LP fees.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `creator` | `PublicKey` | Creator wallet |
+| `bond` | `bigint` | Bond amount returned |
+| `lpFees` | `bigint` | LP fees earned |
+| `total` | `bigint` | Total transferred |
+
+</Accordion>
+
+<Accordion title="PayoutClaimedEvent">
+
+Emitted when a winner claims their payout.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Claimant wallet |
+| `payoutAmount` | `bigint` | Amount received in micro-USDC |
+
+</Accordion>
+
+<Accordion title="RefundClaimedEvent">
+
+Emitted when a bettor claims a refund from an unresolved market.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `user` | `PublicKey` | Claimant wallet |
+| `refundAmount` | `bigint` | Amount refunded in micro-USDC |
+
+</Accordion>
+
+<Accordion title="ResolutionFlaggedEvent (v0.2+)">
+
+Emitted when anyone flags a pending resolution during the challenge window.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `flaggedBy` | `PublicKey` | Wallet that raised the flag |
+
+</Accordion>
+
+<Accordion title="MarketFinalizedEvent (v0.2+)">
+
+Emitted when a pending resolution is finalized after the challenge window elapses undisputed.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `outcome` | `number` | Winning outcome index |
+| `payoutRatio` | `bigint` | Final payout ratio × ODDS_SCALE |
+
+</Accordion>
+
+<Accordion title="ResolutionOverriddenEvent (v0.2+)">
+
+Emitted when an admin overrides a disputed resolution.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `oldOutcome` | `number` | Original outcome that was disputed |
+| `newOutcome` | `number` | Corrected outcome |
+| `newPayoutRatio` | `bigint` | Recomputed payout ratio |
+| `admin` | `PublicKey` | Admin wallet that performed the override |
+
+</Accordion>

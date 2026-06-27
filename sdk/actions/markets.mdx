@@ -1,197 +1,176 @@
 ---
-title: "Cyphers Market Actions: Create, Cancel, and Manage Markets"
-sidebarTitle: "Markets"
-description: "Create YesNo and MultiOutcome prediction markets, cancel markets before any bets are placed, and withdraw creator bond and LP fees after settlement."
+title: "Markets"
+description: "Create, cancel, and manage markets."
 ---
-
-Market actions are available on `client.actions` and handle the full lifecycle of a prediction market on Cyphers - from creation through cancellation or post-settlement withdrawal. Every market creation locks a creator bond of at least $20 USDC, which is returned (plus any LP fees) once the market is settled and you call `withdrawCreatorFunds`.
 
 ## createMarket
 
-Creates a binary (Yes / No) prediction market.
+Creates a YES/NO market. The SDK fetches the current `GlobalState` to auto-assign the next `marketId` and accepted mint - you do not need to provide these.
 
 ```typescript
-const { sig, marketId } = await client.actions.createMarket({
-  question: "Will BTC exceed $200k before January 1, 2026?",
-  category: MarketCategory.Crypto,
-  lockTimestamp: Math.floor(Date.now() / 1000) + 7 * 24 * 3600,
-  resolveDeadline: Math.floor(Date.now() / 1000) + 14 * 24 * 3600,
-  oracleType: "creator",
+const result = await client.actions.createMarket({
+  payer: walletPublicKey,
+  creator: walletPublicKey,
+  question: "Will BTC close above $100k on 31 Dec 2026?",
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 7 * 86400), // 7 days from now
+  category: 0, // Crypto
+  resolver: walletPublicKey, // who can call resolveMarket
+  bondAmount: 20_000_000n,  // $20 USDC — minimum is MIN_CREATOR_BOND
+  challengePeriod: 86400n,  // 24 hours — minimum is MIN_CHALLENGE_PERIOD_SECS
 });
-console.log("Market created:", marketId.toBase58(), "tx:", sig);
+
+console.log("Created market", result.marketId, result.signature);
 ```
 
 ### Parameters
 
-<ParamField path="question" type="string" required>
-  The market question displayed to bettors. Maximum 200 bytes. For YesNo markets, keep this a plain question without any bracket notation.
+<ParamField body="payer" type="PublicKey" required>
+  Transaction fee payer.
 </ParamField>
 
-<ParamField path="category" type="MarketCategory" required>
-  Categorises the market in the UI. One of: `Crypto`, `Politics`, `Sports`, `Tech`, `Economy`, `Culture`, `Beyond`.
+<ParamField body="creator" type="PublicKey" required>
+  Creator's public key. Receives LP fees and can cancel (if no bets) or withdraw funds after resolution.
 </ParamField>
 
-<ParamField path="lockTimestamp" type="number" required>
-  Unix timestamp (seconds) at which betting closes. Must be at least 60 seconds in the future; the SDK validates this client-side before submitting.
+<ParamField body="question" type="string" required>
+  Market question, max 200 bytes. For the question to display correctly in the protocol's `MarketQuestion` PDA, the SDK writes it to a separate account on creation.
 </ParamField>
 
-<ParamField path="resolveDeadline" type="number" required>
-  Unix timestamp (seconds) by which the market must be resolved. Must be after `lockTimestamp`. If unresolved by this time the market enters the `refundable` phase and bettors can reclaim their stake.
+<ParamField body="closeTime" type="bigint" required>
+  Unix timestamp (seconds) when betting closes. Must be at least 60 seconds in the future.
 </ParamField>
 
-<ParamField path="oracleType" type='"creator" | "pyth"' required>
-  Who is authorised to call `resolveMarket`. Use `"creator"` for manually resolved markets or `"pyth"` for automated price-feed resolution.
+<ParamField body="category" type="number" required>
+  Market category. See the [MarketCategory](/sdk/reference/constants#marketcategory) enum for values (0=Crypto, 1=Politics, 2=Sports, 3=Tech, 4=Economy, 5=Culture, 6=Beyond).
 </ParamField>
 
-<ParamField path="pythPriceFeed" type="PublicKey">
-  Required when `oracleType` is `"pyth"`. The Pyth price account public key for the asset being tracked.
+<ParamField body="resolver" type="PublicKey" required>
+  Wallet that can post the outcome after `closeTime`. Usually the creator or a trusted oracle.
+</ParamField>
+
+<ParamField body="bondAmount" type="bigint">
+  Creator bond in micro-USDC. Defaults to `MIN_CREATOR_BOND` ($20). Locked until the creator withdraws after resolution. Pass a larger value to signal stronger commitment.
+</ParamField>
+
+<ParamField body="challengePeriod" type="bigint">
+  Seconds after resolution reveal during which anyone can flag the outcome. Defaults to `MIN_CHALLENGE_PERIOD_SECS` (24h). Max is `MAX_CHALLENGE_PERIOD_SECS` (48h).
+</ParamField>
+
+<ParamField body="acceptedMint" type="PublicKey">
+  Override the accepted USDC mint. Defaults to `globalState.acceptedMint`. Only use this if you need to bypass the GlobalState fetch.
 </ParamField>
 
 ### Return value
 
-<ResponseField name="sig" type="string">
-  Solana transaction signature for the `createMarket` instruction.
+<ResponseField name="signature" type="string">
+  Transaction signature.
 </ResponseField>
 
-<ResponseField name="marketId" type="PublicKey">
-  The `PublicKey` of the newly created market PDA. Use this as the `market` argument in all subsequent calls.
+<ResponseField name="marketId" type="bigint">
+  The assigned market ID.
+</ResponseField>
+
+<ResponseField name="marketPda" type="PublicKey">
+  On-chain address of the new market account.
+</ResponseField>
+
+<ResponseField name="market" type="MarketAccount | null">
+  Market account refetched after creation. Rarely `null` (RPC lag).
 </ResponseField>
 
 ---
 
 ## createMarketMulti
 
-Creates a MultiOutcome prediction market with 2–4 discrete outcomes.
-
-<Warning>
-  MultiOutcome questions **must** end with a `[A|B|C]` suffix that lists outcome labels separated by pipes. The labels are stored on-chain and extracted by `parseEmbeddedOptions`. If you omit the suffix, `getMarketOptionLabels` falls back to generic `"Outcome 1"`, `"Outcome 2"`, … labels and users won't see meaningful button text.
-
-  ```typescript
-  // ✅ Correct - labels embedded in the question
-  question: "Who wins the 2026 World Cup? [Brazil|France|Germany|Argentina]"
-
-  // ❌ Wrong - no labels, generic fallback will be used
-  question: "Who wins the 2026 World Cup?"
-  ```
-</Warning>
+Creates a multi-outcome market with 2-4 named options. Embed the option labels in the question using a `[A|B|C]` suffix.
 
 ```typescript
-const { sig, marketId } = await client.actions.createMarketMulti({
-  question: "Who wins the 2026 World Cup? [Brazil|France|Germany|Argentina]",
-  category: MarketCategory.Sports,
-  lockTimestamp: Math.floor(Date.now() / 1000) + 30 * 24 * 3600,
-  resolveDeadline: Math.floor(Date.now() / 1000) + 35 * 24 * 3600,
-  oracleType: "creator",
-  outcomeCount: 4,
+const result = await client.actions.createMarketMulti({
+  payer: walletPublicKey,
+  creator: walletPublicKey,
+  question: "Which chain leads TVL on 1 Jan 2026? [Solana|Ethereum|Base]",
+  numOutcomes: 3,
+  closeTime: BigInt(Math.floor(Date.now() / 1000) + 30 * 86400),
+  category: 0,
+  resolver: walletPublicKey,
+  bondAmount: 20_000_000n,
+  challengePeriod: 86400n,
 });
 ```
 
-### Parameters
+Takes the same parameters as `createMarket`, plus:
 
-<ParamField path="question" type="string" required>
-  The market question with embedded outcome labels as a `[Label1|Label2|…]` suffix. Maximum 200 bytes total including the suffix.
+<ParamField body="numOutcomes" type="number" required>
+  Number of outcomes (2-4). Must match the number of labels in the `[A|B|C]` suffix.
 </ParamField>
 
-<ParamField path="category" type="MarketCategory" required>
-  Same categories as `createMarket`.
-</ParamField>
-
-<ParamField path="lockTimestamp" type="number" required>
-  Unix timestamp when betting closes.
-</ParamField>
-
-<ParamField path="resolveDeadline" type="number" required>
-  Unix timestamp by which the market must be resolved.
-</ParamField>
-
-<ParamField path="oracleType" type='"creator" | "pyth"' required>
-  Resolver authority type.
-</ParamField>
-
-<ParamField path="outcomeCount" type="2 | 3 | 4" required>
-  Number of outcomes. Must match the number of labels in the `[…]` suffix exactly.
-</ParamField>
-
-### Return value
-
-<ResponseField name="sig" type="string">
-  Solana transaction signature.
-</ResponseField>
-
-<ResponseField name="marketId" type="PublicKey">
-  Public key of the new market PDA.
-</ResponseField>
+<Note>
+  The `[A|B|C]` label suffix is the only way to associate labels with outcome indices. Use `parseEmbeddedOptions(question)` from `@cypher-zk/sdk` to extract them on the read side.
+</Note>
 
 ---
 
 ## cancelMarket
 
-Cancels an active market, returning the creator bond to your wallet. The market must have zero bets placed; once any user has bet, cancellation is permanently blocked on-chain.
-
-Always call `cancelEligibility` first to surface the reason before hitting the RPC:
+Cancels a market with zero bets and returns the creator's bond. The SDK pre-flights eligibility client-side before sending the transaction.
 
 ```typescript
 import { cancelEligibility } from "@cypher-zk/sdk";
 
-const market = await client.markets.fetchByPda(marketId);
-const { ok, reason } = cancelEligibility(market);
+// Pre-flight check before showing the cancel button
+const market = await client.markets.fetch(marketId);
+const elig = cancelEligibility(market);
 
-if (!ok) {
-  // reason: "1 bet(s) placed - cannot cancel"
-  // reason: "state is Resolved (only Active markets can be cancelled)"
-  throw new Error(reason!);
+if (!elig.ok) {
+  console.log("Cannot cancel:", elig.reason);
+  return;
 }
 
-const { sig } = await client.actions.cancelMarket({ market: marketId });
+const result = await client.actions.cancelMarket({
+  creator: walletPublicKey,
+  marketId: 42n,
+});
 ```
+
+<Note>
+  `cancelEligibility(market)` returns `{ ok: true, reason: null }` or `{ ok: false, reason: string }`. The SDK calls this internally before sending, but checking it first lets you conditionally render the cancel button.
+</Note>
 
 ### Parameters
 
-<ParamField path="market" type="PublicKey" required>
-  The market PDA returned when you created the market.
+<ParamField body="creator" type="PublicKey" required>
+  Must match the market's `creator` field on-chain.
 </ParamField>
 
-### Return value
+<ParamField body="marketId" type="bigint | number" required>
+  Market to cancel.
+</ParamField>
 
-<ResponseField name="sig" type="string">
-  Solana transaction signature.
-</ResponseField>
-
-<Note>
-  Only legacy v1/v2 market accounts (577 or 594 bytes) are not cancellable due to a seed change between program versions. The `isLegacyMarketAccount` helper identifies these accounts and `cancelEligibility` will return `ok: false` for them.
-</Note>
+<ParamField body="acceptedMint" type="PublicKey">
+  Override the mint (fetched from GlobalState by default).
+</ParamField>
 
 ---
 
 ## withdrawCreatorFunds
 
-Withdraws the creator bond plus any accumulated LP fees from a settled market. The market must be in the `claimable` or `expired` phase (i.e., `state = Resolved`).
+Pulls the creator's bond and accumulated LP fees from a resolved market.
 
 ```typescript
-import { marketPhase } from "@cypher-zk/sdk";
-
-const market = await client.markets.fetchByPda(marketId);
-const phase = marketPhase(market);
-
-if (phase !== "claimable" && phase !== "expired") {
-  throw new Error(`Market is ${phase} - cannot withdraw yet`);
-}
-
-const { sig } = await client.actions.withdrawCreatorFunds({ market: marketId });
+const result = await client.actions.withdrawCreatorFunds({
+  creator: walletPublicKey,
+  marketId: 42n,
+});
 ```
 
-### Parameters
-
-<ParamField path="market" type="PublicKey" required>
-  The market PDA for the market you created.
+<ParamField body="creator" type="PublicKey" required>
+  Must match the market's `creator` on-chain.
 </ParamField>
 
-### Return value
+<ParamField body="marketId" type="bigint | number" required>
+  A resolved (`state === 2`) market.
+</ParamField>
 
-<ResponseField name="sig" type="string">
-  Solana transaction signature. Once confirmed, your wallet receives the bond and LP fee balance.
-</ResponseField>
-
-<Tip>
-  LP fees accumulate as bets are placed. The earlier you resolve and finalize a market, the sooner your LP fee portion compounds into the next bond you post.
-</Tip>
+<Note>
+  This can only be called once per market. The `LpPositionAccount.withdrawn` flag is set to true after the first call - subsequent calls throw `BondAlreadyWithdrawn` (error 6020).
+</Note>

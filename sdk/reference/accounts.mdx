@@ -1,0 +1,207 @@
+---
+title: "Accounts"
+description: "On-chain account types, fetchers, filters, and display helpers."
+---
+
+## Account types
+
+### MarketAccount
+
+The central account for a prediction market. Exists at the `market` PDA.
+
+| Field | Type | Description |
+|---|---|---|
+| `marketId` | `bigint` | Auto-incrementing ID assigned at creation |
+| `marketType` | `number` | `0` = YesNo, `1` = MultiOutcome |
+| `numOutcomes` | `number` | Number of outcome options (2 for YesNo, 2-4 for multi) |
+| `category` | `number` | Market category enum (0-6) |
+| `creator` | `PublicKey` | Market creator |
+| `resolver` | `PublicKey` | Wallet authorized to post the outcome |
+| `closeTime` | `bigint` | Unix timestamp when betting closes |
+| `state` | `number` | Current state (0=Active, 1=Closed, 2=Resolved, 3=Unresolved, 4=PendingResolution) |
+| `totalBetsCount` | `bigint` | Total number of bets placed |
+| `pool0` | `bigint` | Revealed pool for outcome 0 (set by MPC callback) |
+| `pool1` | `bigint` | Revealed pool for outcome 1 |
+| `pool2` | `bigint` | Revealed pool for outcome 2 (multi only) |
+| `pool3` | `bigint` | Revealed pool for outcome 3 (multi only) |
+| `outcomeValue` | `number` | Winning outcome index (set after resolution) |
+| `payoutRatio` | `bigint` | Payout per unit stake × `ODDS_SCALE` (1e9) |
+| `creatorBond` | `bigint` | Locked bond amount in micro-USDC |
+| `minBet` | `bigint` | Market-specific minimum bet in micro-USDC |
+| `challengePeriod` | `bigint` | Seconds for the dispute window (v0.2+) |
+| `disputed` | `boolean` | Whether a flag was raised during challenge window (v0.2+) |
+| `resolutionDeadline` | `bigint` | Timestamp when refunds become claimable |
+| `claimDeadline` | `bigint` | Timestamp when claim period ends |
+| `inlineQuestion` | `string` | Question text for v1/v2 (legacy) market accounts |
+| `bump` | `number` | PDA bump seed |
+
+<Note>
+  For v0.2+ markets (`state === 4` ever touched), the question lives in a separate `MarketQuestion` PDA rather than inline. Use `fetchMarketQuestions` to hydrate questions in batch.
+</Note>
+
+---
+
+### EncryptedPositionAccount
+
+Records an encrypted bet. Exists at the `position` PDA keyed by `(market, user, betIndex)`.
+
+| Field | Type | Description |
+|---|---|---|
+| `user` | `PublicKey` | Bettor's wallet |
+| `market` | `PublicKey` | Market PDA |
+| `encryptedAmount` | `Uint8Array` | 32-byte ciphertext of the bet stake |
+| `encryptedSide` | `Uint8Array` | 32-byte ciphertext of the chosen outcome |
+| `userPubkey` | `Uint8Array` | Bettor's x25519 public key (needed for decryption) |
+| `nonce` | `bigint` | u128 nonce used for encryption (convert to 16 LE bytes to decrypt) |
+| `entryOdds` | `bigint` | Locked-in odds × `ODDS_SCALE` at bet time |
+| `netAmount` | `bigint` | Plaintext net stake after fees (asserted by circuit) |
+| `betIndex` | `bigint` | Index of this bet for the (user, market) pair |
+| `claimed` | `boolean` | Whether payout or refund was claimed |
+| `computationQueued` | `boolean` | Whether the MPC computation was queued |
+| `bump` | `number` | PDA bump seed |
+
+---
+
+### GlobalStateAccount
+
+Singleton protocol config. There is only one per deployment.
+
+| Field | Type | Description |
+|---|---|---|
+| `marketCounter` | `bigint` | Next market ID to assign |
+| `protocolFeeRate` | `number` | Protocol fee in basis points (e.g., `50` = 0.5%) |
+| `lpFeeRate` | `number` | LP (creator) fee in basis points (e.g., `150` = 1.5%) |
+| `protocolTreasury` | `PublicKey` | Wallet receiving protocol fees |
+| `acceptedMint` | `PublicKey` | USDC mint accepted by this deployment |
+| `admin` | `PublicKey` | Admin wallet for overrides |
+| `bump` | `number` | PDA bump seed |
+
+---
+
+### LpPositionAccount
+
+Tracks the creator's bond and accumulated LP fees per market.
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Market PDA |
+| `creator` | `PublicKey` | Creator wallet |
+| `bond` | `bigint` | Original bond deposited |
+| `lpFees` | `bigint` | Accumulated LP fees from all bets |
+| `withdrawn` | `boolean` | Whether funds have been withdrawn |
+| `bump` | `number` | PDA bump seed |
+
+---
+
+### MarketQuestionAccount
+
+Stores the question text for v0.2+ markets (separate PDA to save space in `MarketAccount`).
+
+| Field | Type | Description |
+|---|---|---|
+| `market` | `PublicKey` | Associated market PDA |
+| `question` | `string` | Full question text (max 200 bytes) |
+| `bump` | `number` | PDA bump seed |
+
+---
+
+## Fetchers
+
+All fetchers are also available as methods on the `CypherClient` namespaces.
+
+```typescript
+import {
+  fetchMarket,
+  fetchAllMarkets,
+  fetchUserPositions,
+  fetchMarketQuestions,
+} from "@cypher-zk/sdk";
+
+// Fetch a single market by ID
+const market = await client.markets.fetch(42n);
+
+// Fetch all markets
+const markets = await client.markets.all();
+
+// Fetch all positions for a user
+const positions = await client.positions.byUser(userPublicKey);
+
+// Hydrate questions for a batch of markets (v0.2+)
+const questionMap = await fetchMarketQuestions(
+  client,
+  markets.map((m) => m.publicKey)
+);
+
+// Merge questions
+const withQuestions = markets.map(({ publicKey, account }) => ({
+  publicKey,
+  account,
+  question: questionMap.get(publicKey.toBase58()) ?? account.inlineQuestion,
+}));
+```
+
+---
+
+## Display helpers
+
+```typescript
+import {
+  marketPhase,
+  marketStateName,
+  marketTypeName,
+  marketCategoryName,
+  cancelEligibility,
+  marketFormatVersion,
+  parseEmbeddedOptions,
+} from "@cypher-zk/sdk";
+```
+
+### marketPhase
+
+Returns a human-readable phase string based on the market's state and timestamps. Use this to drive UI state.
+
+```typescript
+type MarketPhase =
+  | "betting"
+  | "awaitingResolve"
+  | "pendingResolution"
+  | "awaitingFinalize"
+  | "disputed"
+  | "claimable"
+  | "refundable"
+  | "expired"
+  | "cancelled";
+
+const phase = marketPhase(market.account);
+```
+
+### cancelEligibility
+
+Pre-flight check before showing a cancel button.
+
+```typescript
+const { ok, reason } = cancelEligibility(market.account);
+if (!ok) console.log("Cannot cancel:", reason);
+```
+
+### parseEmbeddedOptions
+
+Extracts option labels from a `[A|B|C]` question suffix.
+
+```typescript
+const labels = parseEmbeddedOptions("Which chain leads TVL? [Solana|Ethereum|Base]");
+// ["Solana", "Ethereum", "Base"]
+
+// Map side index to label
+const sideLabel = labels[position.side] ?? `Option ${position.side}`;
+```
+
+### marketFormatVersion
+
+Detects the market account layout version from byte length.
+
+```typescript
+const version = marketFormatVersion(accountData.length); // "v1" | "v2" | "v3" | null
+```
+
+Legacy v1 and v2 accounts have inline questions; v3 accounts use the `MarketQuestion` PDA.
