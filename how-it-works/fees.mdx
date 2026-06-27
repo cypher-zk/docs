@@ -9,9 +9,7 @@ Every bet has two fees deducted up front. Whatever's left enters the pool and ea
 
 ```mermaid
 flowchart LR
-    B["Your bet<br/>$5.00"] -->|"0.5%"| PF["Protocol<br/>$0.025"]
-    B -->|"1.5%"| CF["Creator<br/>$0.075"]
-    B -->|"97%"| P["Into pool<br/>$4.90"]
+    A["Your bet\n$5.00"] -- "− $0.025\nProtocol 0.5%" --> B["$4.975"] -- "− $0.075\nCreator 1.5%" --> C["Into pool\n$4.90"]
 ```
 
 | Fee | Typical | Max | Goes to |
@@ -22,18 +20,18 @@ flowchart LR
 Total typical cost: **`2%`** per bet. For comparison, traditional sportsbooks charge `5–10%`.
 
 <Tip>
-  The app shows you the exact fees before you confirm. Always check there — rates can be updated by the protocol.
+  The app shows you the exact fees before you confirm. Always check there - rates can be updated by the protocol.
 </Tip>
 
 ## How odds work
 
-Each side has a pool — the running total of USDC bet on that option. Your potential payout comes from the ratio of the total pool to the side you bet on:
+Each side has a pool - the running total of USDC bet on that option. Your potential payout comes from the ratio of the total pool to the side you bet on:
 
 ```
 entryOdds = totalPool / yourSidePool
 ```
 
-**Example:** `$3,000` on YES, `$1,000` on NO — total pool `$4,000`.
+**Example:** `$3,000` on YES, `$1,000` on NO - total pool `$4,000`.
 
 - Bet YES → `4000 / 3000 = 1.33×` your net stake if YES wins.
 - Bet NO → `4000 / 1000 = 4×` your net stake if NO wins.
@@ -48,12 +46,12 @@ The app shows your projected payout in the Positions tab. When you claim, the pr
 
 ## Creator bond
 
-Opening a market requires a **USDC bond** of at least `$20`. The bond is held until resolution and returned — with accumulated creator fees — when the market closes cleanly.
+Opening a market requires a **USDC bond** of at least `$20`. The bond is held until resolution and returned - with accumulated creator fees - when the market closes cleanly.
 
 The bond prevents market spam and gives the creator a reason to resolve correctly. It's collateral, not a fee.
 
 ## What's next
 
-- [Market lifecycle](/how-it-works/lifecycle) — when fees apply and when you can claim.
-- [Place a bet](/guides/place-a-bet) — how to bet and read the fee preview.
-- [Create a market](/guides/create-a-market) — the bond you'll need to post.
+- [Market lifecycle](/how-it-works/lifecycle) - when fees apply and when you can claim.
+- [Place a bet](/guides/place-a-bet) - how to bet and read the fee preview.
+- [Create a market](/guides/create-a-market) - the bond you'll need to post.

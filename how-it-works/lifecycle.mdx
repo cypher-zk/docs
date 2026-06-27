@@ -8,17 +8,20 @@ Every market follows the same path: open for bets → resolver posts outcome →
 ## Phases at a glance
 
 ```mermaid
-flowchart TD
-    A([Market created]) --> B[Betting open]
-    B --> C[Awaiting resolve]
-    C -->|outcome posted| D[Pending resolution]
-    C -.deadline missed.-> G[Refundable]
-    D --> CW{Challenge window\n24–48 hours}
-    CW -->|no flags| E[Claimable]
-    CW -.result flagged.-> F[Disputed]
-    F -.admin override.-> E
-    E --> DONE([Winners claim USDC])
-    G --> REFUND([Bettors claim refund])
+sequenceDiagram
+    participant B as You
+    participant S as Solana
+    participant R as Resolver
+    participant A as Arcium
+
+    B->>S: Place encrypted bet
+    Note over S: Close time passes
+    R->>S: Post outcome
+    A->>A: Decrypt all bets (~10 sec)
+    A->>S: Write payout results
+    Note over S: Challenge window (24–48 h)
+    Note over S: Market becomes Claimable
+    B->>S: Claim payout
 ```
 
 | Phase | What it means | Your action |
@@ -36,7 +39,7 @@ flowchart TD
 For most markets:
 
 1. Betting opens when the market is created.
-2. The close time passes — no new bets.
+2. The close time passes - no new bets.
 3. The resolver posts the outcome. Arcium decrypts every bet and computes payouts (≈10 seconds).
 4. A 24–48 hour challenge window opens. No flags → market enters **Claimable**.
 5. Winners claim USDC.
@@ -51,6 +54,6 @@ For most markets:
 
 ## What's next
 
-- [Place a bet](/guides/place-a-bet) — the **Betting** phase from your side.
-- [Claim payout](/guides/claim-payout) — the **Claimable** phase.
-- [Dispute resolution](/guides/dispute-resolution) — how to flag a bad result.
+- [Place a bet](/guides/place-a-bet) - the **Betting** phase from your side.
+- [Claim payout](/guides/claim-payout) - the **Claimable** phase.
+- [Dispute resolution](/guides/dispute-resolution) - how to flag a bad result.

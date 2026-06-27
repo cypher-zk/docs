@@ -1,0 +1,16 @@
+/* Hide Mermaid diagram pan/zoom controls */
+[data-component-name="mermaid-controls-wrapper"] {
+  display: none !important;
+}
+
+/* Spacing above and below Mermaid diagrams */
+[data-component-name="mermaid-container"] {
+  margin-top: 1.25rem !important;
+  margin-bottom: 1.25rem !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+
+#sidebar {
+  z-index: 99 !important;
+}
