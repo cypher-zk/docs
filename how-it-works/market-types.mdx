@@ -3,57 +3,44 @@ title: "Market types"
 description: "The two kinds of markets on Cyphers and when to use each one."
 ---
 
-Cyphers has two market types: **YesNo** and **MultiOutcome**. The difference is how many possible answers a market has. Picking the right one is mostly common sense.
+Cyphers supports two market types. Pick the one that fits the shape of your question.
 
-## YesNo
+<CardGroup cols={2}>
+  <Card title="YesNo" icon="toggle-on">
+    **Two sides:** YES and NO.
 
-A market with two answers - YES and NO. Use it whenever the question has a clear binary outcome.
+    Use when the question has a clear binary answer.
 
-Good examples:
+    *"Will BTC close above $100k on 31 Dec 2025?"*
+  </Card>
+  <Card title="MultiOutcome" icon="list-ul">
+    **Two to four named options.**
 
-- "Will BTC close above `$100k` on `31 Dec 2025`?"
-- "Will the Lakers make the NBA Finals this season?"
-- "Will the next Fed meeting cut rates?"
+    Use when there are specific mutually exclusive possibilities.
 
-The market shows two big buttons (YES and NO) and a bar that splits the pool between the two sides. You bet on one side, win or lose based on the real-world answer.
+    *"Which chain leads in TVL on 1 Jan 2026? Solana / Ethereum / Base"*
+  </Card>
+</CardGroup>
 
-## MultiOutcome
+## Which to use
 
-A market with `2` to `4` named options. Use it when there are a few mutually exclusive possibilities and you want users to bet on a specific one.
+| Question shape | Use |
+|---|---|
+| Yes-or-no answer | YesNo |
+| 2–4 named, mutually exclusive options | MultiOutcome |
+| More than 4 options | Not supported today |
+| Numeric prediction (exact price) | Not supported today |
 
-Good examples:
-
-- "Which chain has the most TVL on `1 Jan 2026`? **Solana** / **Ethereum** / **Base**"
-- "Who wins the next presidential election? **Candidate A** / **Candidate B** / **Candidate C** / **Other**"
-- "Where does TSLA close on Friday? **Above `$300`** / **Between `$280` and `$300`** / **Below `$280`**"
-
-The options are labels you choose at market creation. Cyphers supports up to four.
+When in doubt, prefer **YesNo**. Binary markets attract more bettors because the interface is simpler — one button per side.
 
 ## How odds work
 
-Each side (or option) has its own pool - the total USDC bet on that side. The odds you see in the app are computed from the pool ratios.
+Each side has its own pool — the total USDC bet on that option. The odds you see come from the pool ratios, and they're locked in for your position the moment your bet lands.
 
-A rough mental model:
-
-- If the YES pool has `$1000` and the NO pool has `$1000`, the odds are roughly **50/50**.
-- If the YES pool has `$3000` and the NO pool has `$1000`, YES is the favorite at **3:1** - but the payout for backing YES is smaller, and the payout for backing NO is bigger.
-- The odds you see at bet time are **locked in** for your position. Even if more bets pile in after yours, your payout is calculated against the odds you got.
-
-For the exact formula, see [Fees and odds](/how-it-works/fees#odds-what-you-lock-in-at-bet-time).
-
-## Which to use when
-
-| If your question... | Use |
-|---|---|
-| Has a yes-or-no answer | YesNo |
-| Has 2–4 named, mutually exclusive options | MultiOutcome |
-| Has more than 4 options | Cyphers doesn't support this today |
-| Has a numeric answer (predict exact price) | Cyphers doesn't support this today |
-
-When in doubt, prefer **YesNo**. Binary markets attract more bettors because the UX is simpler - one button per side, no decoding option labels.
+For the full formula and a worked example, see [Fees and odds](/how-it-works/fees).
 
 ## What's next
 
-- [Market lifecycle](/how-it-works/lifecycle) - the phases every market goes through.
-- [Create a market](/guides/create-a-market) - how to open your own market.
-- [Fees and odds](/how-it-works/fees) - exactly how odds and payouts are computed.
+- [Fees and odds](/how-it-works/fees) — how pool ratios turn into payouts.
+- [Create a market](/guides/create-a-market) — open your own market.
+- [Market lifecycle](/how-it-works/lifecycle) — the phases every market goes through.

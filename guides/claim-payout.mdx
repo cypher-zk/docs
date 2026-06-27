@@ -41,25 +41,15 @@ If you bet on the winning side, your position is now claimable.
   </Step>
 </Steps>
 
-That's it. There's no manual approval, no off-chain step. The protocol already knows whether you won (Arcium decrypted your bet at settlement) and pays out the right amount automatically.
+The protocol already knows whether you won — Arcium decrypted your bet at settlement — and pays out automatically. Your payout is based on the odds you locked in at bet time.
 
 <Note>
-  The amount you receive is calculated from the odds you locked in at bet time, adjusted slightly by the payout ratio at settlement. See [Fees and odds](/how-it-works/fees#payouts-at-settlement).
+  If the Positions tab shows your side as "encrypted" (browser data was cleared), you can still claim. The key is only needed to display your side in the UI. See [How privacy works](/how-it-works/privacy-model) for why.
 </Note>
-
-## You don't need your decryption key to claim
-
-This is the question that comes up the most, so it's worth being explicit:
-
-**Your local-storage secret is only needed to display your own side in the app.** It's not needed to claim. The protocol already knows whether you won - Arcium decrypted your position at settlement and wrote the outcome to the market account. Your claim just asks the program to pay out, and the program reads the outcome directly.
-
-So if you cleared your browser data and the Positions tab is showing your side as "encrypted," you can still click Claim. The payout will go through.
 
 ## Claim multiple positions
 
-If you placed several bets on the same market - for example, three YES bets at different times - each one is a separate position. You claim each one independently.
-
-The Positions tab groups your bets by market, so you'll see all three in one place. Click Claim on each. Each is a separate transaction.
+Each bet on a market is a separate position. Claim them one at a time from the Positions tab — each is a separate transaction.
 
 ## Claim a refund
 

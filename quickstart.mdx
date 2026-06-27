@@ -3,113 +3,63 @@ title: "Quickstart"
 description: "Connect a wallet, find a market, and place your first private bet on Cyphers."
 ---
 
-This page walks you through your first bet on Cyphers, end to end. No code - just the steps you take in the app. You'll be done in a few minutes.
+Get your first bet in under five minutes.
 
 ## What you need
 
-- A **Solana wallet**. Phantom, Solflare, Backpack, or any wallet that supports Solana works. If you don't have one, install Phantom from [phantom.app](https://phantom.app).
-- A small amount of **SOL** for transaction fees (about `$0.50` is plenty).
-- Some **USDC** on Solana. The minimum bet is `$1`, but bring whatever you're comfortable putting up. You can swap SOL for USDC on any Solana DEX (Jupiter, Raydium, Phantom's built-in swap).
+- A **Solana wallet** (Phantom, Solflare, or Backpack). Install from [phantom.app](https://phantom.app) if you don't have one.
+- A small SOL balance for transaction fees (about `$0.50` is plenty).
+- Some **USDC** to bet with. Minimum is `$1`.
 
 <Note>
-  Cyphers runs on Solana devnet during the beta. Devnet uses a test USDC mint
-  that has no real value - there's a built-in faucet in the app to top you up.
+  Cyphers runs on Solana devnet during beta. Devnet uses test USDC with no real value. Claim free devnet USDC from the in-app faucet or at [faucet.cyphers.live](https://faucet.cyphers.live).
 </Note>
-- Alternatively, if you don't want to use the in-app faucet, you can claim free
-devnet USDC (CSDC) from **https://faucet.cyphers.live**.
 
 ## Place your first bet
 
 <Steps>
-  <Step title="Open the app">
-    Go to the Cyphers web app and click **Connect Wallet** in the top right. Your wallet extension will pop up and ask you to approve the connection.
+  <Step title="Connect your wallet">
+    Go to the Cyphers app and click **Connect Wallet** in the top right. Approve the connection in your wallet extension.
 
     <Tip>
-      If nothing happens, check that your wallet is unlocked and that it's set to the right network (Devnet during the beta, Mainnet after launch).
+      If nothing happens, make sure your wallet is unlocked and set to Devnet.
     </Tip>
-
   </Step>
 
   <Step title="Pick a market">
-    Browse the **Markets** page. Each card shows the question, the current odds (how the pool is split between the sides), how much has been bet in total, and how long until the market closes.
-
-    Look for a market in the **betting** phase - that's the only phase that accepts new bets.
-
+    Open **Markets** and look for a market in the **Betting** phase — that's the only phase that accepts bets.
   </Step>
 
-  <Step title="Choose a side and an amount">
-    Click into a market. You'll see a bet panel with the available sides:
-
-    - For a **YesNo** market: a YES button and a NO button.
-    - For a **MultiOutcome** market: one button per option (`2` to `4` options).
-
-    Pick a side. Enter the amount in USDC - the minimum is `$1`. The app shows you the fees before you confirm.
-
+  <Step title="Choose a side and amount">
+    Click into a market. Pick YES or NO (or an option, for multi-outcome markets). Enter your stake — minimum `$1`. The app shows the fees before you confirm.
   </Step>
 
   <Step title="Confirm the transaction">
-    Click **Bet**. Your wallet pops up with a transaction to sign. Approve it.
-
-    Behind the scenes:
-
-    - Your browser encrypts your side using a fresh keypair.
-    - The transaction submits the encrypted bet to Solana.
-    - The Arcium network processes it within around `10` seconds.
-
-    The app shows progress for each step. You don't need to do anything during the wait.
-
+    Click **Bet** and approve in your wallet. Your browser encrypts your side before it touches Solana. The whole process takes 10–30 seconds.
   </Step>
 
-  <Step title="See your position">
-    Go to the **Positions** tab. Your bet appears there with:
-
-    - The side you picked.
-    - Your stake.
-    - The odds you locked in at bet time.
-    - The market's status.
-
-    Your side is only visible to you (the app decrypts it locally). Anyone else looking at the chain sees encrypted bytes.
-
+  <Step title="Check Positions">
+    Open the **Positions** tab. Your bet is there with your side, stake, and locked-in odds — visible only to you.
   </Step>
 </Steps>
 
-## Wait for resolution
+## Wait for resolution, then claim
 
-Once the market closes:
-
-- Betting stops. No new positions can be opened.
-- The resolver posts the real-world outcome.
-- The Arcium network decrypts every position and computes payouts (about `10` seconds).
-- A 24–48 hour challenge window opens. During this window anyone can flag a wrong-looking resolution.
-- After the window passes undisputed, the market becomes claimable.
-
-For the full timeline, see [Market lifecycle](/how-it-works/lifecycle).
-
-## Claim your payout
-
-If you picked the winning side, your position is now claimable.
-
-<Steps>
-  <Step title="Open your position">
-    Go to **Positions** and find the resolved market. The card shows your stake,
-    your side, and your projected payout.
-  </Step>
-  <Step title="Click Claim">
-    Sign the transaction in your wallet. USDC lands in your account a few
-    seconds later.
-  </Step>
-</Steps>
-
-<Note>
-  If the market resolved against you, there's nothing to claim. The position
-  stays in your history as a record.
-</Note>
-
-If something looks wrong with the resolution, you can dispute it during the challenge window. See [Dispute resolution](/guides/dispute-resolution).
+Once the market closes, the resolver posts the outcome, Arcium decrypts every bet, and a 24–48 hour challenge window opens. After the window passes, winners can click **Claim** in the Positions tab. For the full timeline see [Market lifecycle](/how-it-works/lifecycle).
 
 ## What's next
 
-- [How privacy works](/how-it-works/privacy-model) - what's actually hidden and what isn't.
-- [Place a bet](/guides/place-a-bet) - a longer walkthrough with edge cases.
-- [Create a market](/guides/create-a-market) - open your own market and earn fees.
-- [FAQ](/troubleshooting/faq) - quick answers to common questions.
+<CardGroup cols={2}>
+  <Card title="How privacy works" icon="lock" href="/how-it-works/privacy-model">
+    What's actually encrypted and what isn't.
+  </Card>
+  <Card title="Fees and odds" icon="receipt" href="/how-it-works/fees">
+    What you pay and how payouts are calculated.
+  </Card>
+  <Card title="Create a market" icon="plus" href="/guides/create-a-market">
+    Open your own market and earn creator fees.
+  </Card>
+  <Card title="FAQ" icon="circle-question" href="/troubleshooting/faq">
+    Quick answers to common questions.
+  </Card>
+</CardGroup>

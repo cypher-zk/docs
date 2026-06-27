@@ -3,82 +3,57 @@ title: "Fees and odds"
 description: "What you pay on each bet, how odds are computed, and how payouts get calculated."
 ---
 
-This page is the honest breakdown of what comes out of every bet you place on Cyphers. Two small fees, a payout calculated from the pool ratios, and that's it.
+Every bet has two fees deducted up front. Whatever's left enters the pool and earns you a payout if you win.
 
-## Two fees come out of every bet
+## Fee breakdown
 
-When you place a bet, two fees are deducted before the rest enters the pool:
+```mermaid
+flowchart LR
+    B["Your bet<br/>$5.00"] -->|"0.5%"| PF["Protocol<br/>$0.025"]
+    B -->|"1.5%"| CF["Creator<br/>$0.075"]
+    B -->|"97%"| P["Into pool<br/>$4.90"]
+```
 
-| Fee | Typical rate | Maximum | Goes to |
+| Fee | Typical | Max | Goes to |
 |---|---|---|---|
-| **Protocol fee** | `0.5%` | `1%` | The protocol treasury |
-| **Market-creator fee** | `1.5%` | `5%` | Whoever opened the market |
+| Protocol fee | `0.5%` | `1%` | Protocol treasury |
+| Market-creator fee | `1.5%` | `5%` | Market creator |
 
-So for a typical `$5` bet, the breakdown is:
-
-| Step | Amount |
-|---|---|
-| Your bet | `$5.00` |
-| Protocol fee (0.5%) | `−$0.025` |
-| Market-creator fee (1.5%) | `−$0.075` |
-| **Goes into the pool** | **`$4.90`** |
-
-Total deducted: `$0.10`, which is `2%` of the bet. That's typical. For comparison, traditional sportsbooks charge `5–10%` and centralized prediction markets often charge similar amounts.
+Total typical cost: **`2%`** per bet. For comparison, traditional sportsbooks charge `5–10%`.
 
 <Tip>
-  The exact rates can be tuned by the protocol. The app shows you the actual fees before you confirm - always check there.
+  The app shows you the exact fees before you confirm. Always check there — rates can be updated by the protocol.
 </Tip>
 
 ## How odds work
 
-Each side of a market has its own pool - the total USDC bet on that side. The odds you see come straight from the pool ratios.
+Each side has a pool — the running total of USDC bet on that option. Your potential payout comes from the ratio of the total pool to the side you bet on:
 
-The intuition:
-
-- If `$1000` is on YES and `$1000` is on NO, the odds are even. Betting `$1` on either side, you'd win roughly `$1` if you're right.
-- If `$3000` is on YES and `$1000` is on NO, YES is the favorite. Betting on YES wins less, betting on NO wins more.
-- More precisely: your potential payout depends on **the total pool** divided by **the side you bet on**. If you bet on the smaller side and win, you get a bigger multiplier.
-
-### The exact formula
-
-If you want to know exactly what's happening behind the scenes:
-
-```text
+```
 entryOdds = totalPool / yourSidePool
 ```
 
-The result is the multiplier you'd get on a winning bet, *before* the payout ratio adjustment at settlement. For the `$3000` YES, `$1000` NO example:
+**Example:** `$3,000` on YES, `$1,000` on NO — total pool `$4,000`.
 
-- Betting on YES: `4000 / 3000 = 1.33×` your stake if YES wins.
-- Betting on NO: `4000 / 1000 = 4×` your stake if NO wins.
+- Bet YES → `4000 / 3000 = 1.33×` your net stake if YES wins.
+- Bet NO → `4000 / 1000 = 4×` your net stake if NO wins.
 
-Your `entryOdds` are **locked in** the moment your bet lands. Even if everyone piles into your side after you, your payout is computed against the odds you got at submission time. This protects early bettors from getting their returns diluted.
+Your `entryOdds` are **locked in** the moment your bet lands. Bets that come in after yours don't change your payout.
 
-## Payouts at settlement
+## Settlement payout
 
-When the market closes and Arcium decrypts every position, the protocol does one final calculation - the **payout ratio** - to make sure the total payouts can't exceed what's actually in the vault.
+When the market closes, Arcium decrypts every position and the protocol computes a final **payout ratio** to ensure total payouts don't exceed the vault. In normal markets this is close to `1`. In edge cases (imbalanced pools, high fees), it can be slightly lower.
 
-For a clean market, the payout ratio is roughly `1`. You get back what your locked-in odds promised. In edge cases (lots of fees taken, very imbalanced pools), it can be slightly less.
+The app shows your projected payout in the Positions tab. When you claim, the protocol pays out automatically.
 
-The app shows you the projected payout on each of your positions in the Positions tab. When you claim, the protocol pays out automatically - no math on your end.
+## Creator bond
 
-## The creator's bond
+Opening a market requires a **USDC bond** of at least `$20`. The bond is held until resolution and returned — with accumulated creator fees — when the market closes cleanly.
 
-Opening a market requires a **USDC bond** from the creator - at least `$20`. The bond is held in the market until resolution, then returned along with the creator's accumulated LP fees.
-
-The bond exists for two reasons:
-
-- **Sybil resistance.** It costs USDC to spin up a market, so nobody can spam thousands of junk markets.
-- **Skin in the game.** A creator who vanishes during resolution loses access to their bond until the dispute period closes.
-
-The bond is fully refundable on a clean resolution. It's not a fee - just collateral.
-
-## Minimum bet
-
-Every market on Cyphers has a minimum bet of `$1` USDC. Bets below this are rejected. Most markets accept anything from `$1` to whatever you have in your wallet.
+The bond prevents market spam and gives the creator a reason to resolve correctly. It's collateral, not a fee.
 
 ## What's next
 
-- [Market lifecycle](/how-it-works/lifecycle) - the timeline that affects when fees apply.
-- [Create a market](/guides/create-a-market) - what bond you'll need to post.
-- [Place a bet](/guides/place-a-bet) - the full bettor flow.
+- [Market lifecycle](/how-it-works/lifecycle) — when fees apply and when you can claim.
+- [Place a bet](/guides/place-a-bet) — how to bet and read the fee preview.
+- [Create a market](/guides/create-a-market) — the bond you'll need to post.

@@ -68,15 +68,6 @@ If you created a market and someone flags your resolution:
 
 The flag itself doesn't penalize you. Only a dispute that exposes a *malicious* resolution (admin override required) puts your reputation as a resolver at risk. Honest mistakes corrected quickly are fine.
 
-## Why the challenge window exists
-
-Cyphers uses an off-chain network to decrypt bets at settlement. That means the resolution flow has two sources of possible error:
-
-- **The resolver could pick the wrong outcome.** Either by mistake or maliciously.
-- **The off-chain network could be tricked.** Unlikely, but the protocol assumes it's possible.
-
-The 24–48 hour challenge window gives the community time to catch either kind of error before any payouts go out. It's the protocol's main safety net for resolution accuracy.
-
 ## What's next
 
 - [Market lifecycle](/how-it-works/lifecycle) - where the challenge window fits in the overall timeline.

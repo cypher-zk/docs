@@ -3,115 +3,50 @@ title: "Place a bet"
 description: "Step-by-step walkthrough of placing a private bet in the Cyphers app."
 ---
 
-This guide walks you through placing a bet on Cyphers - from picking a market to confirming the transaction. The [Quickstart](/quickstart) covers the high-level flow; this page goes deeper on the parts where users get stuck.
-
-## What you need
-
-- A connected Solana wallet (Phantom, Solflare, Backpack, etc.).
-- A small SOL balance for the transaction fee.
-- USDC to bet with - minimum `$1`.
-
-If you don't have any of these set up, the [Quickstart](/quickstart) walks through getting your first wallet ready.
+This guide walks you through placing a bet in the app. For a first-time setup (wallet, USDC, devnet), see the [Quickstart](/quickstart) first.
 
 ## Find the right market
 
-Open the **Markets** page. Every card shows you:
-
-- **The question** - what the market is about.
-- **The current split** - how the pool is divided between sides. This is the *market's* consensus, not yours.
-- **The total pool** - how much USDC has been bet so far.
-- **The close time** - when betting stops.
-- **The status badge** - whether the market is open, closed, or resolved.
+Open **Markets**. Each card shows the question, the current pool split, the total staked, the close time, and the status badge.
 
 Only markets in the **Betting** phase accept new bets. The status badge tells you at a glance.
 
-<Tip>
-  Markets with higher pool sizes typically have tighter odds and better liquidity. Smaller markets give you bigger potential returns but also more risk that the resolver underdelivers.
-</Tip>
+## Pick a side and an amount
 
-## Pick a side
+Click into a market. The bet panel shows:
 
-Click into a market and you'll see the bet panel.
+- **YesNo markets:** YES and NO buttons.
+- **MultiOutcome markets:** one button per option (`2` to `4` options).
 
-**For a YesNo market:** two buttons, **YES** and **NO**. Click whichever side you think is right.
-
-**For a MultiOutcome market:** one button per option (`2` to `4` options). Each option is a labelled possibility chosen by the market creator. Pick one.
-
-The app instantly shows you:
-
-- The **current pool split** - what other bettors collectively think.
-- Your **prospective odds** - the multiplier you'd lock in if you bet now.
-
-## Choose an amount
-
-Type the amount you want to bet in USDC. The app shows a live preview:
-
-- The two fees coming out (protocol + market-creator).
-- The net amount that enters the pool.
-- Your projected payout if you win.
-
-The minimum is `$1`. The maximum is your USDC balance.
-
-<Note>
-  The fees usually total about `2%` of your bet. See [Fees and odds](/how-it-works/fees) for the breakdown.
-</Note>
+Pick a side. Enter the amount in USDC (minimum `$1`). The app shows a live preview of the two fees and your projected payout.
 
 ## Confirm the transaction
 
-Click **Bet**. Your wallet pops up asking you to sign.
+Click **Bet** and approve the transaction in your wallet. The app walks through six stages:
 
-Once you approve, the app walks through six quick stages:
+| Stage | What's happening |
+|---|---|
+| Validating | Confirms the market is still open |
+| Preparing | Fetches current fees and encryption key |
+| Encrypting | Your browser scrambles your side with a fresh key |
+| Submitting | Transaction lands on Solana (≈1 second) |
+| Awaiting MPC | Arcium updates the pool with your encrypted bet (≈10 seconds) |
+| Finalizing | Your position appears in Positions |
 
-1. **Validating** - checking the market is still in the betting phase.
-2. **Preparing** - fetching the latest fees and the encryption key.
-3. **Encrypting** - your browser scrambles your side using a fresh key.
-4. **Submitting** - the transaction lands on Solana (about one second).
-5. **Awaiting MPC** - Arcium decrypts your bet inside its secure network and updates the market's pools (about ten seconds).
-6. **Finalizing** - your position appears in your Positions tab.
-
-The whole thing typically takes 10–30 seconds. You can leave the page once you see "submitting" - the app will pick up where it left off when you come back.
-
-## What just happened to your side
-
-When you clicked **Bet**, your browser:
-
-1. Generated a fresh random key (32 bytes).
-2. Used that key to scramble your side (YES, NO, or option index) into 32 bytes of noise.
-3. Sent the noise to Solana, along with your stake.
-4. Saved the key to your browser's local storage so you can see your own side later.
-
-Nobody - not other bettors, not the protocol, not anyone watching the blockchain - can read your side until the market settles. That's the whole point.
-
-For a deeper look at the encryption, see [How privacy works](/how-it-works/privacy-model).
+You can leave the page after **Submitting** — the app picks up when you return.
 
 <Warning>
-  The key in your local storage is the only way you'll be able to see your own side later. If you clear browser data, you lose visibility - but **not your money**. You can still claim payouts. See [FAQ](/troubleshooting/faq#i-cleared-my-browser-data-can-i-still-claim).
+  A key is saved to your browser's local storage so you can see your own side later. Clearing browser data removes it — but your bet and payout are safe. See [FAQ](/troubleshooting/faq#i-cleared-my-browser-data-can-i-still-claim).
 </Warning>
 
 ## See your position
 
-Open the **Positions** tab. Your new bet appears with:
+Open the **Positions** tab. Your bet shows your side (visible to you only), stake, locked-in odds, and current market status.
 
-- The side you picked (visible to you only).
-- Your stake.
-- The odds you locked in.
-- The market's current status.
-
-You can place more bets on the same market - each one becomes a separate position, with its own key. The app handles that for you automatically.
-
-## What happens next
-
-After the market closes:
-
-- The resolver posts the real-world outcome.
-- Arcium decrypts every position and computes payouts.
-- A 24–48 hour **challenge window** opens for anyone to flag a bad resolution.
-- After the window passes undisputed, the market becomes **claimable** and winners can claim.
-
-For the full timeline, see [Market lifecycle](/how-it-works/lifecycle).
+You can place multiple bets on the same market. Each becomes a separate position with its own key.
 
 ## What's next
 
-- [Claim payout](/guides/claim-payout) - what to do when the market resolves.
-- [Dispute resolution](/guides/dispute-resolution) - what to do if a result looks wrong.
-- [FAQ](/troubleshooting/faq) - quick answers to common bet-related questions.
+- [Claim payout](/guides/claim-payout) — what to do when the market resolves.
+- [Market lifecycle](/how-it-works/lifecycle) — the full timeline from bet to claim.
+- [Dispute resolution](/guides/dispute-resolution) — how to flag a bad result.

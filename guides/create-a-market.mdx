@@ -3,13 +3,7 @@ title: "Create a market"
 description: "Open your own prediction market on Cyphers and earn a share of every bet placed on it."
 ---
 
-Anyone with USDC can open a market on Cyphers. You pick the question, set the close time, post a USDC bond, and earn a share of every bet placed on your market. This guide walks through the whole flow.
-
-## What you get out of it
-
-When you open a market, you earn the **market-creator fee** (up to `5%`) on every single bet placed on it. For a market with `$10,000` in volume, that's `$500` in fees collected over the life of the market.
-
-You also pay back a small fraction at settlement (the payout ratio adjustment), so your real take is closer to `$400` on a `$10,000` market with typical settings. Still a real revenue stream if the market actually attracts bettors.
+Anyone with USDC can open a market on Cyphers. Pick the question, set the close time, post a bond, and earn the market-creator fee on every bet placed on it.
 
 ## What you'll need
 
@@ -20,124 +14,71 @@ You also pay back a small fraction at settlement (the payout ratio adjustment), 
 
 ## Pick a good question
 
-This is the single most important decision. A well-formed market question is:
+A well-formed market question is:
 
-- **Unambiguous.** Two reasonable people should read it and agree on what would count as YES vs NO.
-- **Resolvable.** The answer should come from somewhere a resolver can point to - a price feed, an official announcement, a public event.
-- **Time-bounded.** Pick a clear close time. Open-ended questions ("Will BTC ever hit `$1M`?") don't work.
+- **Unambiguous.** Two reasonable people should agree on what counts as YES vs NO.
+- **Resolvable.** The answer should come from a source a resolver can point to — a price feed, an official announcement, a public event.
+- **Time-bounded.** Pick a clear close time.
 
-Examples that work:
+Good examples:
 
 - "Will BTC close above `$100k` on Coinbase at `00:00 UTC` on `1 Jan 2026`?"
-- "Will the Lakers reach the NBA Finals in the `2025-2026` season?"
+- "Will the Lakers reach the NBA Finals in the `2025–2026` season?"
 - "Will SpaceX successfully land Starship's first stage by `30 Jun 2026`?"
 
-Examples that don't:
+Bad examples:
 
 - "Will crypto go up?" (Ambiguous on every word.)
-- "Will I get a promotion this year?" (Not publicly verifiable.)
-- "Will inflation be high?" (No clear threshold.)
+- "Will inflation be high?" (No clear threshold or source.)
 
 ## Open the market
 
-Go to the **Create Market** page in the app and fill out the form.
+Go to **Create Market** in the app and fill out the form.
 
 <Steps>
   <Step title="Pick a market type">
-    - **YesNo** for a binary question.
-    - **MultiOutcome** for `2`–`4` named options.
-
-    For when to use which, see [Market types](/how-it-works/market-types).
+    **YesNo** for a binary question, **MultiOutcome** for `2`–`4` named options. See [Market types](/how-it-works/market-types).
   </Step>
 
   <Step title="Write the question">
-    For a YesNo market, just type the question. For a MultiOutcome market, type the question and then add up to four labelled options.
-
-    The app handles the label embedding for you. You just type "Solana", "Ethereum", "Base" - the encoding happens behind the scenes.
+    For MultiOutcome markets, add up to four labelled options. The app handles label encoding — you just type the names.
   </Step>
 
   <Step title="Set the close time">
-    Pick when betting should stop. Common choices:
-
-    - **Hours to days** for fast-moving questions (a sports event tomorrow, a price snapshot at end of day).
-    - **Weeks to months** for slower events (an election, a quarterly economic report).
-
-    The app shows you the close time in your local timezone and in UTC.
+    When betting should stop. Pick hours-to-days for fast-moving events, weeks-to-months for slower ones.
   </Step>
 
   <Step title="Choose a resolver">
-    The resolver is the wallet allowed to post the real-world outcome when the market closes. By default it's you. You can change it to:
-
-    - **A trusted team wallet** if you're running the market on behalf of an organization.
-    - **A multisig** for added safety.
-    - **Yourself** if the question has a public outcome you can verify yourself (most common).
+    The wallet allowed to post the real-world outcome. Defaults to you. You can set it to a team wallet or multisig.
   </Step>
 
-  <Step title="Set the bond amount">
-    The bond is the USDC you put up front. The minimum is `$20`. You can post more if you want to signal commitment, but it doesn't change anything in the protocol.
+  <Step title="Set the bond and challenge window">
+    Bond: minimum `$20` USDC, returned at resolution along with your creator fees.
 
-    The bond is refunded at settlement, along with your accumulated creator fees.
-  </Step>
-
-  <Step title="Set the challenge window">
-    This is how long after the resolver posts a result that anyone can flag it as wrong. The window is between `24` and `48` hours.
-
-    A longer window gives more time for the community to catch errors. A shorter window means winners can claim faster. `24 hours` is the common default.
+    Challenge window: `24`–`48` hours after the resolver posts. Longer means more time to catch errors; shorter means faster payouts.
   </Step>
 
   <Step title="Confirm">
-    Click **Create market** and sign the transaction. Your wallet pops up with two requests:
-
-    1. Approving the USDC bond (an SPL token approval).
-    2. The market creation transaction itself.
-
-    A few seconds after both confirm, your market shows up in the Markets page.
+    Click **Create market** and sign two transactions in your wallet: a USDC approval and the market creation itself. Your market appears in the Markets page within seconds.
   </Step>
 </Steps>
 
-## What happens after creation
-
-Once the market is live:
-
-- People can bet on it. Every bet pays you the creator fee.
-- The fees accumulate in the market account - you don't need to claim each one. They're settled in a single withdrawal at resolution.
-- When the close time hits, betting stops. The market enters the **awaiting resolve** phase.
-- You (or your designated resolver) need to post the outcome.
-
 ## Resolve the market
 
-When the close time passes and you know the real-world outcome, go to your market's page in the app. There's a **Resolve** button. Pick the correct outcome and sign.
+When the close time passes, go to your market's page and click **Resolve**. Pick the winning outcome and sign.
 
-For a YesNo market, you pick YES or NO. For a MultiOutcome market, you pick the winning option.
-
-The resolution triggers Arcium to decrypt every bet and compute the payouts. About `10 seconds` later, the market enters **pending resolution** - the challenge window begins.
+Arcium decrypts every bet in about `10` seconds, then the challenge window opens. After it passes undisputed, the market becomes **Claimable** and you can withdraw your bond and fees.
 
 <Warning>
-  Resolving with the wrong outcome doesn't immediately move money. The 24–48 hour challenge window gives bettors time to flag a bad resolution. If anyone flags, an admin reviews the situation. So mistakes can be caught, but they slow everything down.
+  The 24–48 hour challenge window lets bettors flag a wrong resolution before any payouts go out. If the resolver misses the resolution deadline entirely, the market enters **Refundable** and bettors get their stakes back.
 </Warning>
-
-If the resolver doesn't post a result by the deadline, the market enters **refundable** and bettors can pull their stakes back. Your bond stays locked until the admin closes things out.
-
-## Withdraw your funds
-
-After the market resolves cleanly and the challenge window closes, you can withdraw the bond plus your accumulated creator fees.
-
-Open the market's page in the app. There's a **Withdraw funds** button visible to the creator only. Click it, sign the transaction, and USDC lands in your wallet.
-
-That includes:
-
-- The original bond.
-- The creator fees collected over the life of the market.
-- A small adjustment at settlement (called the payout ratio).
 
 ## Cancel before any bets
 
-If you create a market by mistake or want to take it down before anyone bets, you can cancel - but only if **zero bets** have been placed. Once a single bet lands, cancellation is permanently disabled.
-
-Go to the market's page and click **Cancel market**. You get your bond back and the market is gone.
+If zero bets have been placed, you can cancel the market from its page. You get your bond back immediately. Once a single bet lands, cancellation is disabled.
 
 ## What's next
 
-- [Dispute resolution](/guides/dispute-resolution) - what happens if someone flags your result.
-- [Fees and odds](/how-it-works/fees) - the exact math on what you earn.
-- [Market lifecycle](/how-it-works/lifecycle) - the full timeline from creation to payout.
+- [Dispute resolution](/guides/dispute-resolution) — what happens if someone flags your result.
+- [Fees and odds](/how-it-works/fees) — the exact math on creator fees.
+- [Market lifecycle](/how-it-works/lifecycle) — the full timeline from creation to payout.

@@ -1,86 +1,62 @@
 ---
 title: "How privacy works"
-description: "What's hidden, what's not, and the simple idea behind Cyphers' encryption."
+description: "What's hidden, what's not, and how Cyphers keeps your side encrypted on Solana."
 ---
 
-Cyphers hides your chosen side on every bet. This page explains how, in plain language, without going into the math. The short version: your browser scrambles your side with a key only you and the off-chain network share, and the scrambled bytes - not your real side - go to Solana.
+Cyphers hides which side you bet on — YES, NO, or which option — until the market settles. Your wallet address and stake are still public. Here's how it works.
 
 ## What's hidden, what's not
 
-The bet you place ends up on Solana as an account called a **position**. Here's what's on it.
-
 | On your position | Visible to others? |
 |---|---|
-| Your wallet address | Yes |
-| Your stake amount | Yes |
-| The odds you locked in | Yes |
-| Your chosen side (YES, NO, or which option) | **No - encrypted** |
-| The result, once the market settles | Yes |
+| Wallet address | Yes |
+| Stake amount | Yes |
+| Locked-in odds | Yes |
+| **Your chosen side** | **No — encrypted** |
+| Settlement result | Yes, once resolved |
 
-The trade-off is deliberate. The stake amount has to be public so Solana can track the vault. Your side doesn't, so Cyphers hides it.
+## How the encryption works
 
-## The simple idea
+When you click **Bet**, your browser runs a short key-exchange before anything touches Solana:
 
-Every bet you place uses a small piece of cryptography that works like this:
+```mermaid
+sequenceDiagram
+    participant B as Your browser
+    participant S as Solana
+    participant A as Arcium
 
-1. **Your browser makes a one-time key.** It's just 32 random bytes. You'll never see it; the app generates and stores it for you.
-2. **It mixes that key with a key the off-chain network published.** The result is a shared secret - a number both sides can compute independently. Nobody watching Solana ever sees it.
-3. **The shared secret scrambles your side.** Your YES or NO becomes 32 bytes of noise.
-4. **The noise goes to Solana.** Your wallet, stake, and the noise are all visible. The original YES or NO is not.
+    B->>B: Generate one-time keypair
+    B->>B: Compute shared secret with Arcium's public key
+    B->>B: Encrypt your side using shared secret
+    B->>S: Submit tx (encrypted bytes + stake)
+    Note over S: Side stays hidden on-chain
+    S-->>A: Market closes
+    A->>A: Independently computes same shared secret
+    A->>A: Decrypts every bet, computes payouts
+    A->>S: Write results
+    Note over S: Winners can now claim
+```
 
-The off-chain network has its own half of the key. When the market closes, it independently computes the same shared secret and unscrambles every bet at once. Then it writes the result to Solana so winners can claim.
+The shared secret — the number both sides derive independently using Diffie-Hellman — never appears on chain. Anyone reading the chain sees encrypted bytes they can't reverse.
 
-<Note>
-  This is the same kind of cryptography that protects WireGuard, Signal, and HTTPS. It's standard, well-studied, and battle-tested.
-</Note>
+## The key in your browser
 
-## What happens when you click "Bet"
-
-The actual flow, end to end:
-
-1. You click **Bet** in the app.
-2. Your browser generates a fresh keypair and computes the shared secret.
-3. It uses the shared secret to scramble your side into 32 bytes.
-4. Your wallet signs a transaction that sends the scrambled bytes, your stake, and your public key (the harmless half of your keypair) to Solana.
-5. The transaction confirms in about a second.
-6. The Arcium off-chain network processes your bet in about ten more seconds (it updates the public odds on the market, but still can't see your side).
-7. Your position appears in your Positions tab.
-
-Your secret stays in your browser the whole time. Cyphers never sees it. Validators never see it. Other bettors never see it.
-
-## Where the secret lives
-
-The secret - your half of the keypair - is stored in your browser's local storage. The app uses it for two things:
-
-- **Showing you your own bet.** When you open Positions, the app reads the secret out of local storage and uses it to decrypt the side it stored on chain. That's why you can see your own YES or NO.
-- **That's it.** Nothing else needs it.
+After a successful bet, the app saves your private key to browser local storage, keyed by market + bet index. It uses this key for one thing: **showing you your own side** in the Positions tab.
 
 <Warning>
-  If you clear your browser data or move to a different device without copying the secret over, you lose the ability to see what side you bet on. Your bet is still safe, your payout still works, but the Positions tab will display the side as "encrypted." See the [FAQ](/troubleshooting/faq) for what to do.
+  Clearing browser data or switching to a different device removes this key. Your side shows as "encrypted" in the UI — but your bet and payout are completely safe. The protocol already knows the result from the Arcium decryption at settlement. You don't need the key to claim.
 </Warning>
 
-## Why losing your secret doesn't lose your money
+## What Cyphers doesn't protect
 
-This is the most common confusion, and it's worth stating clearly:
+- **Your wallet is public.** Anyone can list your on-chain positions.
+- **Your stake is public.** The amount is in plain text on chain.
+- **That you bet on a market is public.** Cyphers hides what you bet, not that you bet.
+- **Timing is public.** Block timestamps show roughly when each bet was placed.
 
-- **You don't need the secret to claim a payout.** The off-chain network can already see what side you bet on (it has its own half of the keypair) and writes the result to the market itself. Your claim just asks the program to pay out - the program already knows whether you won.
-- **You only need the secret to read your own side in the UI.** Without it, the app shows "encrypted" instead of "YES" or "NO," but everything else works.
-
-So a wiped browser is a UX problem, not a money problem.
-
-## What Cyphers does not protect
-
-It's worth being honest about the limits.
-
-- **Your wallet is public.** Anyone scanning Solana can list all your positions.
-- **Your stake is public.** The amount you bet shows up in plain text on chain.
-- **That you bet on a particular market is public.** Cyphers hides *what you bet on*, not *that you bet at all*.
-- **Timing is public.** Block timestamps show roughly when you placed each bet.
-
-If your threat model needs to hide the fact that you bet entirely - for example, you don't want anyone to know you're participating - Cyphers alone isn't enough.
+If you need to hide your participation entirely, you'd need a separate wallet — that's outside what Cyphers does.
 
 ## What's next
 
-- [Market lifecycle](/how-it-works/lifecycle) - what happens after the market closes.
-- [Market types](/how-it-works/market-types) - the two kinds of markets and how their odds work.
-- [FAQ](/troubleshooting/faq) - common questions about privacy and recovery.
+- [Market lifecycle](/how-it-works/lifecycle) — what happens after the market closes.
+- [FAQ](/troubleshooting/faq) — common questions about privacy and key recovery.
