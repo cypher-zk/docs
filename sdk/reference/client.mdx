@@ -71,23 +71,59 @@ const client = new CypherClient({
 
 `CypherClient` exposes high-level namespaces as read-only properties.
 
+<Tree>
+  <Tree.Folder name="client" defaultOpen>
+    <Tree.Folder name="actions" defaultOpen>
+      <Tree.File name="placeBet(inputs)" />
+      <Tree.File name="createMarket(inputs)" />
+      <Tree.File name="createMarketMulti(inputs)" />
+      <Tree.File name="cancelMarket(inputs)" />
+      <Tree.File name="withdrawCreatorFunds(inputs)" />
+      <Tree.File name="resolveMarket(inputs)" />
+      <Tree.File name="claimPayout(inputs)" />
+      <Tree.File name="claimRefund(inputs)" />
+      <Tree.File name="flagResolution(inputs)" />
+      <Tree.File name="finalizeResolution(inputs)" />
+      <Tree.File name="adminOverrideResolution(inputs)" />
+    </Tree.Folder>
+    <Tree.Folder name="markets">
+      <Tree.File name="fetch(marketId)" />
+      <Tree.File name="fetchByPda(pda)" />
+      <Tree.File name="all()" />
+      <Tree.File name="byCreator(creator)" />
+      <Tree.File name="byState(state)" />
+    </Tree.Folder>
+    <Tree.Folder name="positions">
+      <Tree.File name="fetch(market, user, betIndex?)" />
+      <Tree.File name="byUser(user)" />
+      <Tree.File name="forMarket(market)" />
+    </Tree.Folder>
+    <Tree.Folder name="globalState">
+      <Tree.File name="fetch(opts?)" />
+      <Tree.File name="invalidate()" />
+    </Tree.Folder>
+    <Tree.Folder name="lpPositions">
+      <Tree.File name="fetch(market, creator)" />
+      <Tree.File name="byProvider(provider)" />
+    </Tree.Folder>
+    <Tree.Folder name="marketQuestions">
+      <Tree.File name="fetch(market)" />
+    </Tree.Folder>
+    <Tree.Folder name="events">
+      <Tree.File name="subscribeAll(callback, opts?)" />
+      <Tree.File name="subscribe(name, callback, opts?)" />
+      <Tree.File name="onMarketCreated(callback, opts?)" />
+      <Tree.File name="onBetPlaced(callback, opts?)" />
+      <Tree.File name="onMarketResolved(callback, opts?)" />
+      <Tree.File name="pollEvents(opts?)" />
+      <Tree.File name="parseLogs(logs)" />
+    </Tree.Folder>
+  </Tree.Folder>
+</Tree>
+
 ### `client.actions`
 
 High-level action helpers. Each orchestrates a full flow: validate → encrypt (if needed) → build instructions → send transaction → await Arcium callback → refetch.
-
-| Method | Description |
-|---|---|
-| `placeBet(inputs)` | Encrypt and submit a private bet |
-| `createMarket(inputs)` | Create a YES/NO market |
-| `createMarketMulti(inputs)` | Create a multi-outcome market |
-| `cancelMarket(inputs)` | Cancel a market with zero bets |
-| `withdrawCreatorFunds(inputs)` | Pull creator bond + LP fees |
-| `resolveMarket(inputs)` | Post outcome and trigger MPC reveal |
-| `claimPayout(inputs)` | Claim winning payout |
-| `claimRefund(inputs)` | Claim refund from unresolved market |
-| `flagResolution(inputs)` | Flag a pending resolution as disputed |
-| `finalizeResolution(inputs)` | Finalize after challenge window elapses |
-| `adminOverrideResolution(inputs)` | Admin override on a disputed market |
 
 ### `client.markets`
 

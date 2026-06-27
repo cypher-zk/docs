@@ -87,7 +87,7 @@ After this call the market moves to `PendingResolution` (state `4`). The Arcium 
 
 ---
 
-## flagResolution
+## flagResolution <Badge color="purple" size="sm">v0.2+</Badge>
 
 Flags a pending resolution as disputed during the challenge window. Permissionless - anyone can call this if they believe the outcome is wrong.
 
@@ -110,7 +110,7 @@ After flagging, the market enters a `disputed` state. Payouts are blocked until 
 
 ---
 
-## finalizeResolution
+## finalizeResolution <Badge color="purple" size="sm">v0.2+</Badge>
 
 Finalizes a pending resolution after the challenge window elapses undisputed. Permissionless - anyone can call this to move the market to `Resolved`.
 
@@ -133,7 +133,7 @@ After this call the market state becomes `Resolved` and `claim_deadline` is set,
 
 ---
 
-## adminOverrideResolution
+## adminOverrideResolution <Badge color="purple" size="sm">v0.2+</Badge>
 
 Overrides the outcome on a disputed market. Admin-only.
 

@@ -158,21 +158,15 @@ function MyComponent() {
 
 ## Building with AI
 
-If you use an AI coding agent (Claude, Cursor, etc.), the `cypher-skill` gives it deep context about the SDK - provider wiring, hook patterns, encryption flows, and common pitfalls. Add it to your project:
+If you use an AI coding agent (Claude, Cursor, etc.), the `cypher-skill` gives it deep context about the SDK - provider wiring, hook patterns, encryption flows, and common pitfalls.
 
-<CodeGroup>
-
-```bash npx
+<Prompt
+  description="Add cypher-skill to your project — covers CypherProvider setup, all React hooks, onProgress patterns, x25519 secret persistence, and market phase gating."
+  icon="wand-magic-sparkles"
+  actions={["copy"]}
+>
 npx skills add cypher-zk/cypher-skill
-```
-
-```bash bunx
-bunx skills add cypher-zk/cypher-skill
-```
-
-</CodeGroup>
-
-The skill covers the full frontend surface: `CypherProvider` setup, all React hooks, `onProgress` UI patterns, x25519 secret persistence, and market phase gating.
+</Prompt>
 
 ## What's next
 

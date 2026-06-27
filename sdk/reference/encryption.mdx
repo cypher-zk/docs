@@ -3,7 +3,7 @@ title: "Encryption"
 description: "Bet encryption, decryption, and key persistence."
 ---
 
-Cypher uses x25519 Diffie-Hellman key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium MPC nodes run the reveal circuit.
+Cypher uses <Tooltip tip="An elliptic-curve Diffie-Hellman function on Curve25519. Produces a 32-byte shared secret from two keypairs — only the two parties holding the private keys can derive it.">x25519</Tooltip> key exchange combined with Arcium's RescueCipher to encrypt bet inputs before they reach the blockchain. The scheme ensures that no one - not even Solana validators - can read a position's stake or side until the Arcium <Tooltip tip="Multi-Party Computation: multiple nodes jointly compute a result over encrypted inputs without any single node seeing the raw data.">MPC</Tooltip> nodes run the reveal circuit.
 
 ```mermaid
 sequenceDiagram
@@ -56,7 +56,7 @@ import { deriveSharedSecret } from "@cypher-zk/sdk";
 const sharedSecret = deriveSharedSecret(userPrivateKey, mxePublicKey);
 ```
 
-This is standard x25519 ECDH. The user's private key + the MXE's (Arcium node's) public key → a 32-byte shared secret. Only the MXE can derive the same secret from its side, so only Arcium nodes can decrypt positions.
+This is standard x25519 <Tooltip tip="Elliptic-Curve Diffie-Hellman: a key agreement protocol that lets two parties derive the same shared secret using only each other's public keys.">ECDH</Tooltip>. The user's private key + the MXE's (Arcium node's) public key → a 32-byte shared secret. Only the MXE can derive the same secret from its side, so only Arcium nodes can decrypt positions.
 
 ---
 
