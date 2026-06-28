@@ -96,6 +96,49 @@ All Cypher errors start at Anchor's `6000` offset.
 
 ---
 
+## ReadonlyWalletError
+
+Thrown by [`readonlyWallet`](/sdk/reference/client#readonlywallet) when a write path tries to sign. Means a mutation hook (`usePlaceBet`, `useClaimPayout`, …) fired against a `CypherClient` whose wallet hasn't finished connecting. Gate the calling UI on your wallet adapter's ready state.
+
+```typescript TypeScript
+import { ReadonlyWalletError } from "@cypher-zk/sdk";
+
+class ReadonlyWalletError extends Error {
+  readonly code: "READONLY_WALLET";
+  readonly name: "ReadonlyWalletError";
+  // message defaults to:
+  //   "Wallet is read-only. Connect a wallet before sending a transaction."
+}
+```
+
+Detect it in a mutation handler to show a friendly "connect wallet" prompt instead of leaking the SDK detail:
+
+```typescript TypeScript
+import { ReadonlyWalletError } from "@cypher-zk/sdk";
+import { usePlaceBet } from "@cypher-zk/sdk/react";
+
+const placeBet = usePlaceBet({
+  onError: (err) => {
+    if (err instanceof ReadonlyWalletError) {
+      toast.error("Connect your wallet to place a bet.");
+      return;
+    }
+    toast.error(err.message);
+  },
+});
+```
+
+For programmatic detection in environments where `instanceof` checks may not survive (multiple SDK copies, RSC boundaries, etc.), match on the stable `code`:
+
+```typescript TypeScript
+const code = (err as { code?: string })?.code;
+if (code === "READONLY_WALLET") { /* … */ }
+```
+
+Available since v0.8.9.
+
+---
+
 ## Common patterns
 
 **Check for a specific error:**

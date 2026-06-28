@@ -127,7 +127,7 @@ pnpm add @cypher-zk/sdk @solana/web3.js @tanstack/react-query
 
 ## Read-only mode
 
-Use `readonlyWallet` when the user isn't connected yet. It lets fetch hooks run without a signer - mutation hooks will throw if called.
+Use `readonlyWallet` when the user isn't connected yet. It lets fetch hooks run without a signer. Mutation hooks throw a `ReadonlyWalletError` (with `code === "READONLY_WALLET"`) so the UI can detect the case and show a "connect wallet" prompt instead of a generic error.
 
 ```typescript TypeScript
 import { readonlyWallet } from "@cypher-zk/sdk";
@@ -138,6 +138,23 @@ const client = new CypherClient({
   cluster: "devnet",
 });
 ```
+
+See [Errors → ReadonlyWalletError](/sdk/reference/errors#readonlywalleterror) for the full type and handling pattern.
+
+## Tuning RPC throughput
+
+The SDK batches every bulk read (`client.markets.byIds`, `client.marketQuestions.fetchMany`, `useMarketQuestions`, …) into chunks of ≤100 pubkeys with bounded concurrency and exponential-backoff retries. Defaults are conservative enough for free-tier RPCs. On a paid plan (Helius, Triton) you can raise `concurrency` for snappier list views:
+
+```typescript TypeScript
+const client = new CypherClient({
+  connection,
+  wallet,
+  cluster: "devnet",
+  rpcOptions: { concurrency: 10 }, // default 5
+});
+```
+
+See [`CypherClientOptions.rpcOptions`](/sdk/reference/client#constructor-options) for the full shape.
 
 ## Access the client directly
 

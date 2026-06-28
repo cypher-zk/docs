@@ -4,7 +4,31 @@ description: "SDK version history and migration notes."
 mode: "wide"
 ---
 
-<Update label="v0.8.7" description="Current release" tags={["Feature", "Breaking"]}>
+<Update label="v0.8.9" description="Current release" tags={["Feature"]}>
+
+**Friendlier read-only wallet error.** `readonlyWallet` now throws a typed `ReadonlyWalletError` instead of a generic `Error`, with a user-friendly message and a stable `code` for programmatic detection.
+
+- New export: `ReadonlyWalletError` (`code === "READONLY_WALLET"`, `name === "ReadonlyWalletError"`).
+- New default message: `"Wallet is read-only. Connect a wallet before sending a transaction."`
+- Detect the case with `err instanceof ReadonlyWalletError` to show a "connect wallet" prompt instead of leaking the SDK detail to your user.
+
+</Update>
+
+<Update label="v0.8.8" tags={["Feature"]}>
+
+**RPC batching layer.** New `src/rpc/` module that chunks bulk reads past Solana's 100-key `getMultipleAccountsInfo` cap, runs with bounded concurrency, and retries transient errors (`429` / `5xx` / network blips) with exponential backoff. Fixes the practical bug where `fetchMarketQuestions` broke once a deployment had more than 100 markets.
+
+- New low-level helper: `batchedGetMultipleAccountsInfo(connection, pubkeys, overrides?)`.
+- New `CypherClientOptions.rpcOptions?: Partial<BatchOptions>` — tune `chunkSize`, `concurrency`, `retries`, `retryBaseMs` per client. Conservative defaults (chunkSize 100, concurrency 5, retries 3) survive free-tier RPCs; bump `concurrency` on paid plans.
+- New paginated fetcher: `fetchMarketsByIds(client, ids[])` / `client.markets.byIds(ids)` — fetch a known list of markets without pulling the entire program payload. Preferred over `.all()` once the program has more than a few hundred markets.
+- `client.marketQuestions.fetchMany(markets)` — exposes the existing batch helper on the client surface, now routed through the chunked fetcher.
+- React: `useMarkets({ ids })` filter mode that routes to `byIds`.
+- React: `useMarketQuestions(markets)` — TanStack-Query wrapper over `fetchMany` with a 60s stale time (questions are immutable after market creation).
+- New query-key factory: `marketQuestionKeys.byMarkets(pdas)` for manual invalidation.
+
+</Update>
+
+<Update label="v0.8.7" tags={["Feature", "Breaking"]}>
 
 **Multi-bet support.** Users can now hold multiple positions per market. Each bet gets an auto-incrementing `betIndex`.
 

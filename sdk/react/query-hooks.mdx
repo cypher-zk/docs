@@ -30,13 +30,13 @@ Cache TTL: 30 seconds.
 
 ## useMarkets
 
-Fetches all markets. Optionally filter by creator or state.
+Fetches markets. Filter by creator, state, or a known list of IDs.
 
 ```typescript TypeScript
 import { useMarkets } from "@cypher-zk/sdk/react";
 import { PublicKey } from "@solana/web3.js";
 
-// All markets
+// All markets — expensive at scale, prefer `{ ids }` for paginated views
 const { data: markets } = useMarkets();
 
 // Only active markets (state = 0)
@@ -44,32 +44,63 @@ const { data: active } = useMarkets({ state: 0 });
 
 // Markets by a specific creator
 const { data: mine } = useMarkets({ creator: new PublicKey("...") });
+
+// Paginated: fetch just the page you're showing. Routes through
+// `client.markets.byIds` — chunks at Solana's 100-key cap with retries.
+const ids = Array.from({ length: 50 }, (_, i) => BigInt(start + i));
+const { data: page } = useMarkets({ ids });
 ```
 
 Each item in the array is `{ publicKey: PublicKey, account: MarketAccount }`.
 
-For markets created with SDK v0.2+, the question lives in a separate `MarketQuestion` account. Use `fetchMarketQuestions` to hydrate them in batch:
+<Note>
+  The `{ ids }` filter mode was added in v0.8.8. It's the recommended path once a deployment has more than a few hundred markets — `useMarkets()` with no filter still calls `getProgramAccounts` and returns the full payload.
+</Note>
 
-```typescript TypeScript
-import { fetchMarketQuestions } from "@cypher-zk/sdk";
+<Tip>
+  Memoize the filter object when it's derived in render (e.g. from query results) so TanStack Query sees a stable input:
 
-const client = useCypherClient();
-const { data: markets } = useMarkets();
-
-// Hydrate questions for all markets
-const questionMap = await fetchMarketQuestions(
-  client,
-  markets?.map((m) => m.publicKey) ?? []
-);
-
-const withQuestions = markets?.map(({ publicKey, account }) => ({
-  publicKey,
-  account,
-  question: questionMap.get(publicKey.toBase58()) || account.inlineQuestion,
-}));
-```
+  ```typescript TypeScript
+  const filter = useMemo(() => ({ ids: marketPdas }), [marketPdas]);
+  const opts = useMemo(
+    () => ({ enabled: marketPdas.length > 0 }),
+    [marketPdas.length],
+  );
+  const { data: page } = useMarkets(filter, opts);
+  ```
+</Tip>
 
 Cache TTL: 10 seconds. Pass `refetchInterval: 4000` for live odds updates.
+
+---
+
+## useMarketQuestions
+
+Batch-fetches the question text for a list of markets (typically the output of `useMarkets`). Routes through the SDK's RPC batching layer, so it scales past Solana's 100-key `getMultipleAccountsInfo` cap.
+
+```typescript TypeScript
+import { useMarkets, useMarketQuestions } from "@cypher-zk/sdk/react";
+
+const { data: markets } = useMarkets({ ids });
+const { data: questions } = useMarketQuestions(markets ?? []);
+
+const text =
+  questions?.get(market.publicKey.toBase58()) ??
+  market.account.inlineQuestion;
+```
+
+Returns `Map<marketPdaBase58, questionString>`. Markets without a `MarketQuestion` PDA (legacy v1/v2 inline-question markets) are omitted from the map - fall back to `account.inlineQuestion` for those.
+
+<Tip>
+  Stabilize the input array so TanStack Query keys don't churn every render:
+
+  ```typescript TypeScript
+  const marketsForQuestions = useMemo(() => rawMarkets ?? [], [rawMarkets]);
+  const { data: questions } = useMarketQuestions(marketsForQuestions);
+  ```
+</Tip>
+
+Cache TTL: 60 seconds. Questions are immutable after market creation. Query is automatically disabled when the markets list is empty. Available since v0.8.8.
 
 ---
 
@@ -145,6 +176,7 @@ Cache TTL: 5 seconds.
 | `useGlobalState` | 30 s | Fee rates change rarely |
 | `useMarkets` | 10 s | Pass `refetchInterval` for live odds |
 | `useMarket` | 10 s | Same as above |
+| `useMarketQuestions` | 60 s | Questions are immutable after market creation |
 | `useUserPositions` | 5 s | Frequently invalidated by mutations |
 | `usePosition` | 5 s | Invalidated after claim |
 
@@ -155,13 +187,25 @@ Cache TTL: 5 seconds.
 If you send raw instructions outside of mutation hooks, invalidate the cache yourself using the query key factories:
 
 ```typescript TypeScript
-import { marketKeys, positionKeys } from "@cypher-zk/sdk/react";
+import {
+  marketKeys,
+  marketQuestionKeys,
+  positionKeys,
+} from "@cypher-zk/sdk/react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const qc = useQueryClient();
 
 // Invalidate a specific market
 qc.invalidateQueries({ queryKey: marketKeys.detail(marketId) });
+
+// Invalidate a paginated market page
+qc.invalidateQueries({ queryKey: marketKeys.byIds(ids) });
+
+// Invalidate batch question fetch for a page of markets
+qc.invalidateQueries({
+  queryKey: marketQuestionKeys.byMarkets(markets.map((m) => m.publicKey)),
+});
 
 // Invalidate all positions for a user
 qc.invalidateQueries({ queryKey: positionKeys.byUser(userPublicKey) });

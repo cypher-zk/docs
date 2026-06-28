@@ -65,6 +65,31 @@ const client = new CypherClient({
   Extra options forwarded to the Anchor provider (e.g., `skipPreflight`).
 </ParamField>
 
+<ParamField body="rpcOptions" type="Partial<BatchOptions>">
+  Tunables for the SDK's bulk RPC reads — chunking, concurrency, and retry policy. Defaults are conservative enough for free-tier RPCs; bump `concurrency` on paid plans (Helius, Triton) to speed up large list views.
+
+  ```typescript
+  interface BatchOptions {
+    chunkSize: number;     // default 100 (Solana RPC cap)
+    concurrency: number;   // default 5
+    retries: number;       // default 3
+    retryBaseMs: number;   // default 200 — exponential backoff
+    commitment?: Commitment;
+  }
+  ```
+
+  ```typescript TypeScript
+  const client = new CypherClient({
+    connection,
+    wallet,
+    cluster: "devnet",
+    rpcOptions: { concurrency: 10 }, // Helius / Triton paid tiers
+  });
+  ```
+
+  Available since v0.8.8.
+</ParamField>
+
 ---
 
 ## Namespaces
@@ -92,6 +117,7 @@ const client = new CypherClient({
       <Tree.File name="all()" />
       <Tree.File name="byCreator(creator)" />
       <Tree.File name="byState(state)" />
+      <Tree.File name="byIds(ids)" />
     </Tree.Folder>
     <Tree.Folder name="positions">
       <Tree.File name="fetch(market, user, betIndex?)" />
@@ -108,6 +134,7 @@ const client = new CypherClient({
     </Tree.Folder>
     <Tree.Folder name="marketQuestions">
       <Tree.File name="fetch(market)" />
+      <Tree.File name="fetchMany(markets)" />
     </Tree.Folder>
     <Tree.Folder name="events">
       <Tree.File name="subscribeAll(callback, opts?)" />
@@ -136,6 +163,7 @@ Account fetch helpers for `MarketAccount`.
 | `all()` | All markets |
 | `byCreator(creator)` | Filter by creator |
 | `byState(state)` | Filter by state enum value |
+| `byIds(ids)` | Fetch a known list of markets (mixed `bigint`/`number`/`PublicKey`). Routes through the batched RPC layer with chunking, concurrency, and retries. <Badge color="purple" size="sm">v0.8.8+</Badge> |
 
 ### `client.positions`
 
@@ -168,6 +196,7 @@ Pass `{ refresh: true }` to bypass the cache: `client.globalState.fetch({ refres
 | Method | Description |
 |---|---|
 | `fetch(market)` | Fetch the `MarketQuestion` PDA for a market (v0.2+ markets only) |
+| `fetchMany(markets)` | Batch-fetch questions for many markets in chunked RPC calls. Returns `Map<marketPdaBase58, questionString>`. <Badge color="purple" size="sm">v0.8.8+</Badge> |
 
 ### `client.events`
 
@@ -207,7 +236,7 @@ const client = new CypherClient({
 
 ### readonlyWallet
 
-Creates a wallet that can sign nothing - only fetch operations work. Calling `signTransaction` or `signAllTransactions` throws. Use it before the user connects their browser wallet.
+Creates a wallet that can sign nothing - only fetch operations work. Calling `signTransaction` or `signAllTransactions` throws a `ReadonlyWalletError`. Use it before the user connects their browser wallet.
 
 ```typescript TypeScript
 import { readonlyWallet } from "@cypher-zk/sdk";
@@ -218,3 +247,21 @@ const client = new CypherClient({
   cluster: "devnet",
 });
 ```
+
+Detect the read-only case in a mutation handler to show a "connect wallet" prompt instead of leaking the SDK detail:
+
+```typescript TypeScript
+import { ReadonlyWalletError } from "@cypher-zk/sdk";
+
+placeBet.mutate(inputs, {
+  onError: (err) => {
+    if (err instanceof ReadonlyWalletError) {
+      toast.error("Connect your wallet to place a bet.");
+      return;
+    }
+    toast.error(err.message);
+  },
+});
+```
+
+See [Errors → ReadonlyWalletError](/sdk/reference/errors#readonlywalleterror) for the full type.
