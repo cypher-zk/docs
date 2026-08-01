@@ -3,8 +3,8 @@
   "name": "CYPHERS",
   "theme": "linden",
   "logo": {
-    "light": "/cypher-logo.svg",
-    "dark": "/cypher-logo.svg",
+    "light": "/cypher-wordmark-light.svg",
+    "dark": "/cypher-wordmark-dark.svg",
     "href": "https://www.cyphers.live"
   },
   "icons": {
@@ -12,9 +12,9 @@
   },
   "favicon": "/favicon.ico",
   "colors": {
-    "primary": "#111111",
-    "light": "#9CA3AF",
-    "dark": "#000000"
+    "primary": "#18181B",
+    "light": "#A1A1AA",
+    "dark": "#09090B"
   },
   "fonts": {
     "heading": {
@@ -32,7 +32,7 @@
   "background": {
     "decoration": "windows",
     "color": {
-      "light": "#FAFAFA"
+      "light": "#FFFFFF"
     }
   },
   "navbar": {

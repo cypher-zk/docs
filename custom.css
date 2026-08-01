@@ -16,176 +16,156 @@
 }
 
 /* ── Mermaid color overrides (light + dark) ──────────────────────────────────
-   Monochromatic B&W palette to match Cyphers brand.
-   Light: white fills, dark-gray borders, near-black text.
-   Dark:  near-black fills, mid-gray borders, light-gray text.               */
+   Tailwind zinc scale throughout — cool blue-gray tint, premium mono feel.
+   Light: zinc-50/100 fills · zinc-300 borders · zinc-900 text
+   Dark:  zinc-900/800 fills · zinc-700 borders · zinc-100 text            */
 
 /* ── LIGHT MODE ── */
 
-/* Sequence — participant boxes */
 [data-component-name="mermaid-container"] svg .actor {
-  fill: #f5f5f5 !important;
-  stroke: #d4d4d4 !important;
+  fill: #fafafa !important;   /* zinc-50 */
+  stroke: #d4d4d8 !important; /* zinc-300 */
 }
 [data-component-name="mermaid-container"] svg text.actor {
-  fill: #171717 !important;
+  fill: #18181b !important;   /* zinc-900 */
 }
 
-/* Sequence — note/label boxes */
 [data-component-name="mermaid-container"] svg rect.note {
-  fill: #e5e5e5 !important;
-  stroke: #a3a3a3 !important;
+  fill: #f4f4f5 !important;   /* zinc-100 */
+  stroke: #a1a1aa !important; /* zinc-400 */
 }
 [data-component-name="mermaid-container"] svg text.noteText {
-  fill: #404040 !important;
+  fill: #3f3f46 !important;   /* zinc-700 */
 }
 
-/* Sequence — message text on arrows */
 [data-component-name="mermaid-container"] svg .messageText {
-  fill: #171717 !important;
+  fill: #18181b !important;
   stroke: none !important;
 }
 
-/* Sequence — lifelines */
 [data-component-name="mermaid-container"] svg .actor-line {
-  stroke: #a3a3a3 !important;
+  stroke: #d4d4d8 !important; /* zinc-300 */
 }
 
-/* Sequence — horizontal message arrows */
 [data-component-name="mermaid-container"] svg .messageLine0,
 [data-component-name="mermaid-container"] svg .messageLine1 {
-  stroke: #525252 !important;
+  stroke: #71717a !important; /* zinc-500 */
 }
 
-/* Sequence — arrowhead markers */
 [data-component-name="mermaid-container"] svg marker path {
-  fill: #525252 !important;
-  stroke: #525252 !important;
+  fill: #71717a !important;
+  stroke: #71717a !important;
 }
 
-/* Sequence — loop / alt boxes */
 [data-component-name="mermaid-container"] svg .loopLine {
-  stroke: #d4d4d4 !important;
-  fill: #f5f5f5 !important;
+  stroke: #d4d4d8 !important;
+  fill: #fafafa !important;
 }
 [data-component-name="mermaid-container"] svg .loopText,
 [data-component-name="mermaid-container"] svg .loopText > tspan {
-  fill: #404040 !important;
+  fill: #52525b !important;   /* zinc-600 */
 }
 
-/* Flowchart — nodes */
 [data-component-name="mermaid-container"] svg .node rect,
 [data-component-name="mermaid-container"] svg .node circle,
 [data-component-name="mermaid-container"] svg .node ellipse,
 [data-component-name="mermaid-container"] svg .node polygon,
 [data-component-name="mermaid-container"] svg .node path {
-  fill: #f5f5f5 !important;
-  stroke: #d4d4d4 !important;
+  fill: #fafafa !important;
+  stroke: #d4d4d8 !important;
 }
 [data-component-name="mermaid-container"] svg .node .label foreignObject div {
-  color: #171717 !important;
+  color: #18181b !important;
 }
 
-/* Flowchart — terminal/cluster nodes */
 [data-component-name="mermaid-container"] svg .node.default rect,
 [data-component-name="mermaid-container"] svg .cluster rect {
-  fill: #e5e5e5 !important;
-  stroke: #a3a3a3 !important;
+  fill: #f4f4f5 !important;
+  stroke: #a1a1aa !important;
 }
 
-/* Flowchart — edges */
 [data-component-name="mermaid-container"] svg .edgePath .path {
-  stroke: #525252 !important;
+  stroke: #71717a !important;
 }
 [data-component-name="mermaid-container"] svg .edgeLabel .label rect {
-  fill: #f5f5f5 !important;
+  fill: #fafafa !important;
 }
 [data-component-name="mermaid-container"] svg .edgeLabel .label span {
-  color: #404040 !important;
+  color: #52525b !important;
   background: transparent !important;
 }
 
 /* ── DARK MODE ── */
 
-/* Sequence — participant boxes */
 .dark [data-component-name="mermaid-container"] svg .actor {
-  fill: #1a1a1a !important;
-  stroke: #3f3f3f !important;
+  fill: #18181b !important;   /* zinc-900 */
+  stroke: #3f3f46 !important; /* zinc-700 */
 }
 .dark [data-component-name="mermaid-container"] svg text.actor {
-  fill: #d4d4d4 !important;
+  fill: #f4f4f5 !important;   /* zinc-100 */
 }
 
-/* Sequence — note/label boxes */
 .dark [data-component-name="mermaid-container"] svg rect.note {
-  fill: #262626 !important;
-  stroke: #525252 !important;
+  fill: #27272a !important;   /* zinc-800 */
+  stroke: #52525b !important; /* zinc-600 */
 }
 .dark [data-component-name="mermaid-container"] svg text.noteText {
-  fill: #a3a3a3 !important;
+  fill: #a1a1aa !important;   /* zinc-400 */
 }
 
-/* Sequence — message text on arrows */
 .dark [data-component-name="mermaid-container"] svg .messageText {
-  fill: #d4d4d4 !important;
+  fill: #e4e4e7 !important;   /* zinc-200 */
   stroke: none !important;
 }
 
-/* Sequence — lifelines */
 .dark [data-component-name="mermaid-container"] svg .actor-line {
-  stroke: #404040 !important;
+  stroke: #3f3f46 !important;
 }
 
-/* Sequence — horizontal message arrows */
 .dark [data-component-name="mermaid-container"] svg .messageLine0,
 .dark [data-component-name="mermaid-container"] svg .messageLine1 {
-  stroke: #737373 !important;
+  stroke: #71717a !important; /* zinc-500 */
 }
 
-/* Sequence — arrowhead markers */
 .dark [data-component-name="mermaid-container"] svg marker path {
-  fill: #737373 !important;
-  stroke: #737373 !important;
+  fill: #71717a !important;
+  stroke: #71717a !important;
 }
 
-/* Sequence — loop / alt boxes */
 .dark [data-component-name="mermaid-container"] svg .loopLine {
-  stroke: #3f3f3f !important;
-  fill: #1a1a1a !important;
+  stroke: #3f3f46 !important;
+  fill: #18181b !important;
 }
 .dark [data-component-name="mermaid-container"] svg .loopText,
 .dark [data-component-name="mermaid-container"] svg .loopText > tspan {
-  fill: #a3a3a3 !important;
+  fill: #a1a1aa !important;
 }
 
-/* Flowchart — nodes */
 .dark [data-component-name="mermaid-container"] svg .node rect,
 .dark [data-component-name="mermaid-container"] svg .node circle,
 .dark [data-component-name="mermaid-container"] svg .node ellipse,
 .dark [data-component-name="mermaid-container"] svg .node polygon,
 .dark [data-component-name="mermaid-container"] svg .node path {
-  fill: #1a1a1a !important;
-  stroke: #3f3f3f !important;
+  fill: #18181b !important;
+  stroke: #3f3f46 !important;
 }
 .dark [data-component-name="mermaid-container"] svg .node .label foreignObject div {
-  color: #d4d4d4 !important;
+  color: #f4f4f5 !important;
 }
 
-/* Flowchart — terminal/cluster nodes */
 .dark [data-component-name="mermaid-container"] svg .node.default rect,
 .dark [data-component-name="mermaid-container"] svg .cluster rect {
-  fill: #262626 !important;
-  stroke: #525252 !important;
+  fill: #27272a !important;
+  stroke: #52525b !important;
 }
 
-/* Flowchart — edges */
 .dark [data-component-name="mermaid-container"] svg .edgePath .path {
-  stroke: #525252 !important;
+  stroke: #52525b !important;
 }
 .dark [data-component-name="mermaid-container"] svg .edgeLabel .label rect {
-  fill: #1a1a1a !important;
+  fill: #18181b !important;
 }
 .dark [data-component-name="mermaid-container"] svg .edgeLabel .label span {
-  color: #a3a3a3 !important;
+  color: #a1a1aa !important;
   background: transparent !important;
 }
