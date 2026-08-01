@@ -1,20 +1,20 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "name": "Cyphers",
+  "name": "CYPHERS",
   "theme": "linden",
   "logo": {
-    "light": "/cypher-logo-light.svg",
+    "light": "/cypher-logo.svg",
     "dark": "/cypher-logo.svg",
-    "href": "https://cypher-zk.github.io"
+    "href": "https://www.cyphers.live"
   },
   "icons": {
     "library": "fontawesome"
   },
-  "favicon": "/cyphers.png",
+  "favicon": "/favicon.ico",
   "colors": {
-    "primary": "#6d45fc",
-    "light": "#A78BFA",
-    "dark": "#5B35D5"
+    "primary": "#111111",
+    "light": "#9CA3AF",
+    "dark": "#000000"
   },
   "fonts": {
     "heading": {
@@ -32,7 +32,7 @@
   "background": {
     "decoration": "windows",
     "color": {
-      "light": "#FAF8FF"
+      "light": "#FAFAFA"
     }
   },
   "navbar": {
